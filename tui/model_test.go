@@ -163,7 +163,7 @@ func TestChangingCoreRefreshesVersion(t *testing.T) {
 	if cmd == nil || m.version != "Checking…" {
 		t.Fatal("core change did not refresh version")
 	}
-	m.Update(cmd())
+	runCommands(m, cmd)
 	if m.version != "Unavailable" || m.bad || m.notice != "Saved" {
 		t.Fatal("failed automatic probe changed application notice")
 	}

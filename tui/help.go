@@ -26,7 +26,7 @@ func (m *Model) helpView(w, h int) string {
 			"Log messages wrap inside the message column.",
 			"G resumes following the latest output.")
 	case Tools:
-		lines = append(lines, "g update Geo assets",
+		lines = append(lines, "g update Geo assets · u update Xray",
 			"c connect · s stop · a add profile",
 			"v check core version")
 	case Settings:
@@ -34,7 +34,7 @@ func (m *Model) helpView(w, h int) string {
 			"c connect · s stop · a add profile",
 			"Forms: Tab next · Ctrl+S save · Esc cancel")
 	default:
-		lines = append(lines, "c connect · s stop · a add profile",
+		lines = append(lines, "c connect · r restart · s stop · a add profile",
 			"y share active profile as QR · v core version",
 			"i connection details · Tab next page")
 	}

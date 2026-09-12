@@ -37,7 +37,7 @@ Profiles reference existing files. Veer does not install Xray automatically or p
 | **1 Overview** | Connection status beside the selected profile, core version, traffic chart, mode, DNS and listeners. **i** opens process and path details. |
 | **2 Profiles** | **/** filters names, engines and paths. **Enter** selects; **a** adds, **e** renames, **d** removes a profile entry. **y** shares the focused profile. |
 | **3 Logs** | Colored severity levels, timestamps, sources and wrapped messages. **G** resumes following the latest output. |
-| **4 Tools** | Geosite and GeoIP versions or file timestamps. **g** opens the Geo asset updater. |
+| **4 Tools** | Geosite and GeoIP versions or file timestamps. **g** opens the Geo asset updater; **u** opens the Xray core updater. |
 | **5 Settings** | **e** edits the core path, Geo directory and DNS preferences. **v** checks the core version. |
 
 Outside forms and search:
@@ -112,6 +112,46 @@ Tools reads the configured Geo directory, or the selected profile's directory wh
 - If release lookup is unavailable or CDN content does not match, the display falls back to timestamps. Larger terminals also show the last update time.
 
 Veer manages client-side assets; server-user creation and server-config mutation are not exposed in the TUI.
+
+## Xray core updates
+
+Veer checks [XTLS/Xray-core releases](https://github.com/XTLS/Xray-core/releases)
+in the background at startup. An available core update appears in the header.
+In **Tools**, press **u** to open the core updater, **r** to check again,
+and **j/k** or **↑/↓** to select a version. Only compatible versions newer than
+the installed core are listed, newest first. Press **Enter** to review and confirm
+downloading and replacing the configured Xray executable with the selected version.
+**Esc** cancels a check or download, or returns to Tools.
+
+Choose **Stable** with **h/←**, or explicitly select **Preview** with **l/→**.
+**Stable** is the default and
+excludes prereleases; **Preview** includes stable and prerelease releases. The
+choice is saved. Versions are compared numerically and never downgraded, so
+switching to Stable waits for a stable release newer than the installed preview.
+
+You can stay connected while downloading and installing. The updater resolves the Xray path from Settings
+(including a command in PATH or a symlink), downloads the matching official ZIP,
+verifies SHA-256, and extracts only `xray` or `xray.exe`. Existing Geo assets,
+configuration and other bundled files are retained. Each successful update keeps
+the previous executable in its `.veer-update-*` directory beside Xray. A failed
+download or verification preserves the executable; failed Windows replacement
+attempts to restore the old file and retains any recovery backup.
+
+Press **b** in the core updater to confirm restoring the previous local backup.
+Recovery works offline and remains available after restarting Veer. It preserves
+the replaced version as another backup and takes effect on the next connection.
+The release list still offers only newer versions; explicit backup recovery can
+return to an older version. Retained backups are not automatically deleted.
+
+The current connection continues using the old core. After updating, Veer offers
+**Restart now** or **Later**. Choosing Later keeps the connection and its running
+version unchanged. Press **r** on Overview whenever you want to restart the
+connection. Overview shows the running core's version while connected, and the
+installed version while disconnected. Veer itself does not need to restart.
+The executable's directory must be writable. Updates do not request elevation.
+For package-manager installations, use the package manager when its directory
+is not writable. Missing or unrecognized local Xray versions must be resolved
+in Settings before updating.
 
 ## Settings storage
 

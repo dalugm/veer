@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+	update "github.com/dalugm/veer/engine/coreupdate"
 )
 
 var (
@@ -72,6 +73,13 @@ func (m *Model) View() tea.View {
 		return m.screen(fit(m.helpView(w, h), w, h))
 	}
 	header := accent.Bold(true).Render("  V E E R") + faint.Render("  /  where to next?")
+	if m.updates.latest != nil {
+		header = accent.Bold(true).
+			Render("  V E E R") +
+			faint.Render(
+				"  /  Xray update · 4 then u",
+			)
+	}
 	if m.page != Overview {
 		status := m.connectionStatus()
 		gap := max(1, w-ansi.StringWidth(header)-ansi.StringWidth(status)-3)
@@ -97,6 +105,8 @@ func (m *Model) View() tea.View {
 		content = m.confirmView(w-2, contentHeight)
 	} else if m.form != nil {
 		content = m.formView(w-2, contentHeight)
+	} else if m.updates.open {
+		content = m.updateView(w-2, contentHeight)
 	} else {
 		switch m.page {
 		case Overview:
@@ -116,7 +126,10 @@ func (m *Model) View() tea.View {
 		noticeStyle = lipgloss.NewStyle().Foreground(rose)
 	}
 	notice := " " + noticeStyle.Render(clip(safe(m.notice), w-2))
-	footer := " c connect  s stop  y QR  i details  ? help  q quit"
+	footer := " c connect  r restart  s stop  y QR  i details  ? help  q quit"
+	if w < 64 {
+		footer = " c connect  r restart  s stop  y QR  ? help  q quit"
+	}
 	if m.form != nil {
 		footer = " Tab next field   Ctrl+S submit   Esc cancel"
 		if m.form.pathField() {
@@ -130,13 +143,16 @@ func (m *Model) View() tea.View {
 	} else if m.page == Logs {
 		footer = " j/k scroll  gg/G ends  Ctrl+d/u half page  ? help  q quit"
 	} else if m.page == Tools {
-		footer = " g update Geo assets   h/l pages   ? help   q quit"
+		footer = " g Geo assets   u Xray update   h/l pages   ? help   q quit"
 	} else if m.page == Settings {
 		footer = " e edit settings   v check engine version   h/l pages"
 	}
 	if m.search != nil {
 		notice = " " + m.search.input.View()
 		footer = " Enter apply search   Ctrl+U clear   Esc cancel"
+	}
+	if m.updates.open {
+		footer = " j/k version  h/l channel  r check  Enter install  Esc back"
 	}
 	if m.busy {
 		footer = " Esc cancel current operation   Ctrl+C stop and quit"
@@ -191,11 +207,21 @@ func fit(s string, w, h int) string {
 }
 
 func (m *Model) coreLabel() string {
-	fields := strings.Fields(safe(m.version))
+	version := m.version
+	if m.running() {
+		version = m.runningVersion
+		if version == "" {
+			version = "Unavailable"
+		}
+	}
+	if parsed := update.ParseVersion(version); parsed != "" {
+		return "Xray " + strings.TrimPrefix(parsed, "v")
+	}
+	fields := strings.Fields(safe(version))
 	if len(fields) >= 2 && strings.EqualFold(fields[0], "Xray") {
 		return "Xray " + fields[1]
 	}
-	return "Xray · " + safe(m.version)
+	return "Xray · " + safe(version)
 }
 
 func (m *Model) dnsDescription() string {
@@ -216,7 +242,7 @@ func (m *Model) toolsView(w, h int) string {
 	return box(
 		"TOOLS",
 		accent.Bold(true).
-			Render("[ g ]  Update Geo assets")+
+			Render("[ g ]  Geo assets    [ u ]  Xray update")+
 			"\n\n"+m.geoAssetsView(h < 14)+"\n\n"+faint.Render("Downloads happen only when you request them."),
 		w,
 		h,
@@ -297,6 +323,7 @@ func (m *Model) formView(w, h int) string {
 
 func (m *Model) confirmView(w, h int) string {
 	title, body := "Confirm", ""
+	accept, decline := "[ y / Enter ] Confirm", "[ n / Esc ] Cancel"
 	switch m.confirmation {
 	case "quit":
 		title = "Disconnect and quit?"
@@ -304,14 +331,40 @@ func (m *Model) confirmView(w, h int) string {
 	case "remove":
 		title = "Remove this profile?"
 		body = "Only its entry in Veer is removed. Your config file is retained."
+	case "update":
+		title = "Install Xray update?"
+		if selected := m.selectedUpdate(); selected != nil {
+			body = safe(
+				m.updates.current,
+			) + " → " + safe(
+				selected.Version,
+			) + "\n" + safe(m.config.EnginePath) + "\nDownload, verify and replace the configured Xray core."
+			if m.running() {
+				body += "\nAfter installation, choose whether to restart the connection."
+			}
+		}
+	case "restore-update":
+		title = "Restore previous Xray?"
+		body = safe(
+			m.availableBackup(),
+		) + "\nRestore the local backup without downloading.\nKeep the current executable as another backup."
+		if m.running() {
+			body += "\nAfter restoration, choose whether to restart the connection."
+		}
+	case "restart-update":
+		title = "Restart connection now?"
+		body = "Xray " + safe(
+			m.updates.current,
+		) + " is installed.\nRestart briefly disconnects to apply the new core.\nChoose Later to keep the current core running."
+		accept, decline = "[ y / Enter ] Restart", "[ n / Esc ] Later"
 
 	}
 	return box(
 		title,
 		body+"\n\n"+accent.Render(
-			"[ y / Enter ] Confirm",
+			accept,
 		)+"    "+faint.Render(
-			"[ n / Esc ] Cancel",
+			decline,
 		),
 		w,
 		h,

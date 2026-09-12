@@ -32,6 +32,7 @@ func (j *jobs) close() { j.mu.Lock(); j.closed = true; j.mu.Unlock(); j.wg.Wait(
 // Shutdown prevents queued operations from starting and waits for active work.
 // Call after cancelling the application context and before stopping the backend.
 func (m *Model) Shutdown() {
+	m.cancelUpdateCheck()
 	if m.pathCancel != nil {
 		m.pathCancel()
 	}

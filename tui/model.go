@@ -2,15 +2,12 @@ package tui
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"os/exec"
 	"runtime"
-	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/dalugm/veer/engine"
+	update "github.com/dalugm/veer/engine/coreupdate"
 	"github.com/dalugm/veer/geofile"
 	"github.com/dalugm/veer/privilege"
 	"github.com/dalugm/veer/session"
@@ -33,6 +30,8 @@ var pageNames = []string{"Overview", "Profiles", "Logs", "Tools", "Settings"}
 
 // Model owns terminal navigation, forms and asynchronous session updates.
 type Model struct {
+	updates                          appUpdate
+	coreVersionSeq                   uint64
 	geoSeq                           uint64
 	geoDir                           string
 	geoFiles                         []geofile.FileInfo
@@ -64,6 +63,7 @@ type Model struct {
 	busyLabel                        string
 	cancelWork                       context.CancelFunc
 	version                          string
+	runningVersion                   string
 	info                             engine.Info
 	phase                            int
 	traffic                          trafficHistory
@@ -83,13 +83,23 @@ type (
 )
 
 type sessionMsg struct {
-	err  error
-	quit bool
+	err     error
+	quit    bool
+	started bool
+	version string
+}
+
+type restartStoppedMsg struct {
+	err error
+	ctx context.Context
 }
 
 type (
-	engineVersionMsg struct{ binary, version string }
-	prepareMsg       struct {
+	engineVersionMsg struct {
+		binary, version string
+		seq             uint64
+	}
+	prepareMsg struct {
 		options engine.Options
 		need    bool
 		err     error
@@ -103,6 +113,12 @@ func New(ctx context.Context, path string, backend privilege.Backend) (*Model, e
 		return nil, err
 	}
 	m := &Model{
+		updates: appUpdate{
+			client:      update.New(),
+			current:     "Checking…",
+			readVersion: readVersion,
+			status:      "Not checked yet.",
+		},
 		ctx:                ctx,
 		checkAuthorization: privilege.AuthorizationCached,
 		readPaths:          completePaths,
@@ -120,9 +136,9 @@ func New(ctx context.Context, path string, backend privilege.Backend) (*Model, e
 	return m, nil
 }
 
-// Init starts periodic session updates and a background core-version query.
+// Init starts session updates and background core/release-version queries.
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(tick(), m.loadVersion(), m.loadGeoInfo(m.geoDirectory()))
+	return tea.Batch(tick(), m.loadVersion(), m.loadGeoInfo(m.geoDirectory()), m.checkUpdate(false))
 }
 
 func tick() tea.Cmd {
@@ -139,6 +155,29 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := message.(type) {
+	case updateCheckedMsg:
+		m.updateChecked(msg)
+		return m, nil
+	case updateInstalledMsg:
+		m.updateInstalled(msg)
+		if msg.err == nil && m.running() {
+			m.confirmation = "restart-update"
+		}
+		return m, nil
+	case restartStoppedMsg:
+		cancelled := msg.ctx.Err() != nil
+		if m.cancelWork != nil {
+			m.cancelWork()
+		}
+		_, _ = m.Update(sessionMsg{err: msg.err})
+		if msg.err != nil {
+			return m, nil
+		}
+		if cancelled {
+			m.notice = "Restart cancelled. Connection stopped."
+			return m, nil
+		}
+		return m, m.connect()
 	case geoInfoMsg:
 		if msg.seq == m.geoSeq && msg.dir == m.geoDir {
 			m.geoFiles = msg.files
@@ -160,7 +199,7 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case engineVersionMsg:
-		if msg.binary == m.config.EnginePath {
+		if msg.binary == m.config.EnginePath && msg.seq == m.coreVersionSeq {
 			m.version = msg.version
 		}
 		return m, nil
@@ -193,12 +232,16 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			m.notice = msg.notice
 			if msg.config != nil {
 				changedCore := m.config.EnginePath != msg.config.EnginePath
+				changedChannel := m.config.CoreUpdateChannel != msg.config.CoreUpdateChannel
 				m.config = *msg.config
 				m.ensureProfileCursor()
 				m.info = msg.info
 				if changedCore {
 					m.version = "Checking…"
 					refresh = m.loadVersion()
+				}
+				if changedChannel || changedCore {
+					refresh = tea.Batch(refresh, m.checkUpdate(false))
 				}
 			}
 			if msg.closeForm {
@@ -222,6 +265,22 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.cancelWork = nil
 		m.snapshot = m.backend.Snapshot()
 		m.observeTraffic(time.Now())
+		if msg.started && msg.err == nil && m.snapshot.State == session.Running {
+			m.runningVersion = msg.version
+			if update.ParseVersion(msg.version) == m.updates.current {
+				m.updates.status = "Updated to " + m.updates.current + ". Active."
+			}
+		}
+		if m.snapshot.State == session.Stopped || m.snapshot.State == session.Failed {
+			m.runningVersion = ""
+		}
+		if msg.err == nil && m.updates.restartPending {
+			m.updates.restartPending = false
+			m.updates.status = "Updated to " + m.updates.current + ". Ready to connect."
+			if m.snapshot.State == session.Running {
+				m.updates.status = "Updated to " + m.updates.current + ". Active."
+			}
+		}
 		m.bad = msg.err != nil
 		if msg.err != nil {
 			m.notice = msg.err.Error()
@@ -284,6 +343,12 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 					return m, m.quit()
 				case "remove":
 					return m, m.removeProfile()
+				case "update":
+					return m, m.installUpdate()
+				case "restore-update":
+					return m, m.restoreUpdate()
+				case "restart-update":
+					return m, m.restart()
 				}
 			case "n", "esc":
 				m.confirmation = ""
@@ -293,6 +358,10 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		if m.form != nil {
 			m.pendingG = false
 			return m, m.updateForm(msg)
+		}
+		if m.updates.open {
+			m.pendingG = false
+			return m, m.updateKey(msg.String())
 		}
 		if m.busy {
 			m.pendingG = false
@@ -348,11 +417,20 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.connect()
 		case "s":
 			return m, m.stop(false)
+		case "r":
+			if m.page == Overview {
+				return m, m.restart()
+			}
 		case "v":
 			return m, m.checkVersion()
 		case "g":
 			if m.page == Tools {
 				return m, m.openGeo()
+			}
+		case "u":
+			if m.page == Tools {
+				m.updates.open = true
+				m.notice, m.bad = "", false
 			}
 		case "enter":
 			if m.page == Profiles {
@@ -468,12 +546,44 @@ func (m *Model) connect() tea.Cmd {
 
 func (m *Model) runStart(o engine.Options) tea.Cmd {
 	ctx, cancel := m.begin("Starting Xray…")
+	read := m.updates.readVersion
 	return m.workers.track(func() tea.Msg {
+		version, versionErr := read(ctx, o.Binary)
+		if versionErr != nil || version == "" {
+			version = "Unavailable"
+		}
+		if err := ctx.Err(); err != nil {
+			cancel()
+			return sessionMsg{err: err}
+		}
 		err := m.backend.Start(ctx, o)
 		if err != nil {
 			cancel()
 		}
-		return sessionMsg{err: err}
+		return sessionMsg{err: err, started: true, version: version}
+	})
+}
+
+func (m *Model) restart() tea.Cmd {
+	if m.quitting || m.busy {
+		return nil
+	}
+	if !m.running() {
+		return m.connect()
+	}
+	if _, ok := m.config.Active(); !ok {
+		m.bad, m.notice = true, "Choose a profile before restarting."
+		return nil
+	}
+	ctx, _ := m.begin("Restarting Xray…")
+	return m.workers.track(func() tea.Msg {
+		if err := ctx.Err(); err != nil {
+			return restartStoppedMsg{err: err, ctx: ctx}
+		}
+		// Finish process shutdown and DNS rollback even if restarting is cancelled.
+		stopCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		return restartStoppedMsg{err: m.backend.Stop(stopCtx), ctx: ctx}
 	})
 }
 
@@ -492,6 +602,7 @@ func (m *Model) stop(quit bool) tea.Cmd {
 }
 
 func (m *Model) quit() tea.Cmd {
+	m.cancelUpdateCheck()
 	m.clearPathCompletion()
 	m.quitting = true
 	if m.auth != nil {
@@ -565,31 +676,20 @@ func (m *Model) checkVersion() tea.Cmd {
 }
 
 func (m *Model) loadVersion() tea.Cmd {
+	m.coreVersionSeq++
+	seq := m.coreVersionSeq
 	ctx, binary := m.ctx, m.config.EnginePath
 	return m.workers.track(func() tea.Msg {
 		v, err := readVersion(ctx, binary)
 		if err != nil {
 			v = "Unavailable"
 		}
-		return engineVersionMsg{binary: binary, version: v}
+		return engineVersionMsg{binary: binary, version: v, seq: seq}
 	})
 }
 
 func readVersion(ctx context.Context, binary string) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, binary, "version")
-	hideProcess(cmd)
-	cmd.WaitDelay = 100 * time.Millisecond
-	out, err := cmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("xray version check failed: %w", err)
-	}
-	v := strings.SplitN(strings.TrimSpace(string(out)), "\n", 2)[0]
-	if v == "" {
-		return "", errors.New("engine returned no version information")
-	}
-	return v, nil
+	return engine.Version(ctx, binary)
 }
 
 func inspectSelected(c settings.Config) engine.Info {
