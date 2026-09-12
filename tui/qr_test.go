@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/dalugm/veer/settings"
 	qr "github.com/piglig/go-qr"
@@ -94,6 +95,38 @@ func TestQRSharingAndNavigation(t *testing.T) {
 	press(m, 'q')
 	if m.qr != nil || m.quitting {
 		t.Fatal("q should close QR only")
+	}
+}
+
+func TestQRModalBackground(t *testing.T) {
+	m := newTestModel(t)
+	code, err := qr.EncodeText("test", qr.Low)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.qr = &qrModal{name: "Test", items: []qrItem{{code: code}}}
+	view := m.qrView(160, 80)
+	canvas := lipgloss.NewCanvas(lipgloss.Width(view), lipgloss.Height(view)).
+		Compose(lipgloss.NewLayer(view))
+	lightCells := 0
+	for y := range canvas.Height() {
+		for x := range canvas.Width() {
+			cell := canvas.CellAt(x, y)
+			if cell == nil || cell.Style.Bg == nil {
+				t.Fatalf("missing background at %d,%d: %+v", x, y, cell)
+			}
+			switch color.RGBAModel.Convert(cell.Style.Bg) {
+			case color.RGBA{R: 220, G: 228, B: 242, A: 255}:
+				lightCells++
+			case color.RGBA{R: 17, G: 24, B: 39, A: 255}:
+			default:
+				t.Fatalf("unexpected background at %d,%d: %v", x, y, cell.Style.Bg)
+			}
+		}
+	}
+	size := code.Size() + 8
+	if want := size * ((size + 1) / 2); lightCells != want {
+		t.Fatalf("QR light background and quiet zone: got %d cells, want %d", lightCells, want)
 	}
 }
 

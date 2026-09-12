@@ -154,7 +154,21 @@ func (m *Model) qrView(w, h int) string {
 		Padding(0, 1).
 		Width(width).
 		Render(content)
-	return fit(card, min(w, lipgloss.Width(card)), min(h, lipgloss.Height(card)))
+	card = fit(card, min(w, lipgloss.Width(card)), min(h, lipgloss.Height(card)))
+	// Nested ANSI resets and border styling leave some cells without a
+	// background. Make the modal opaque without changing the QR's light cells.
+	canvas := lipgloss.NewCanvas(lipgloss.Width(card), lipgloss.Height(card)).
+		Compose(lipgloss.NewLayer(card))
+	for y := range canvas.Height() {
+		for x := range canvas.Width() {
+			if cell := canvas.CellAt(x, y); cell != nil && cell.Style.Bg == nil {
+				filled := *cell
+				filled.Style.Bg = lipgloss.Color("#111827")
+				canvas.SetCell(x, y, &filled)
+			}
+		}
+	}
+	return canvas.Render()
 }
 
 // renderQR packs two module rows into each cell and keeps a four-module quiet
