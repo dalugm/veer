@@ -25,19 +25,29 @@ type Profile struct {
 
 // Config contains persisted profiles and application preferences.
 type Config struct {
-	DNSMode        string    `json:"dns_mode,omitempty"`
-	DNS            string    `json:"dns,omitempty"`
-	NetworkService string    `json:"network_service,omitempty"`
-	Version        int       `json:"version"`
-	EnginePath     string    `json:"engine_path"`
-	GeoDir         string    `json:"geo_dir,omitempty"`
-	Selected       string    `json:"selected,omitempty"`
-	Profiles       []Profile `json:"profiles"`
+	CoreUpdateChannel string    `json:"core_update_channel,omitempty"`
+	CoreBackupPath    string    `json:"core_backup_path,omitempty"`
+	CoreBackupFor     string    `json:"core_backup_for,omitempty"`
+	CoreBackupTarget  string    `json:"core_backup_target,omitempty"`
+	DNSMode           string    `json:"dns_mode,omitempty"`
+	DNS               string    `json:"dns,omitempty"`
+	NetworkService    string    `json:"network_service,omitempty"`
+	Version           int       `json:"version"`
+	EnginePath        string    `json:"engine_path"`
+	GeoDir            string    `json:"geo_dir,omitempty"`
+	Selected          string    `json:"selected,omitempty"`
+	Profiles          []Profile `json:"profiles"`
 }
 
 // Defaults returns the initial preferences for a new installation.
 func Defaults() Config {
-	return Config{DNSMode: "auto", Version: 1, EnginePath: "xray", Profiles: []Profile{}}
+	return Config{
+		CoreUpdateChannel: "stable",
+		DNSMode:           "auto",
+		Version:           1,
+		EnginePath:        "xray",
+		Profiles:          []Profile{},
+	}
 }
 
 // DefaultPath resolves the settings file using the environment and OS config directory.
@@ -81,6 +91,9 @@ func Load(path string) (Config, error) {
 	}
 	if c.EnginePath == "" {
 		c.EnginePath = "xray"
+	}
+	if c.CoreUpdateChannel != "preview" {
+		c.CoreUpdateChannel = "stable"
 	}
 	ids := map[string]bool{}
 	for _, p := range c.Profiles {

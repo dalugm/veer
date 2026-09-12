@@ -9,6 +9,7 @@ require (
 	github.com/charmbracelet/x/ansi v0.11.8
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/piglig/go-qr v1.1.0
+	golang.org/x/mod v0.41.0
 	golang.org/x/sys v0.48.0
 )
 
