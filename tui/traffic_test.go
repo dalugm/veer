@@ -17,7 +17,7 @@ func TestOverviewTrafficFits(t *testing.T) {
 		m := newTestModel(t)
 		m.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
 		view := ansi.Strip(m.View().Content)
-		for _, required := range []string{"TRAFFIC", "↑", "↓", "quit"} {
+		for _, required := range []string{"TRAFFIC", "↑", "↓", "? help"} {
 			if !strings.Contains(view, required) {
 				t.Errorf("%v missing %s:\n%s", size, required, view)
 			}
@@ -218,7 +218,7 @@ func TestTrafficLivePreview(t *testing.T) {
 			t.Fatal("diagnostic footer remains")
 		}
 		if !strings.Contains(view, "29.0 KiB/s") || !strings.Contains(view, "290.0 KiB/s") ||
-			!strings.Contains(view, "quit") {
+			!strings.Contains(view, "? help") {
 			t.Fatal(view)
 		}
 		for _, line := range strings.Split(view, "\n") {

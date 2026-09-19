@@ -25,7 +25,7 @@ func TestPagesRemainSeparateAtEverySize(t *testing.T) {
 			t.Fatal("overview contains secondary detail")
 		}
 		if !strings.Contains(view, "TRAFFIC") || !strings.Contains(view, "Home") ||
-			!strings.Contains(view, "q quit") {
+			!strings.Contains(view, "? help") {
 			t.Fatal(view)
 		}
 		for _, line := range strings.Split(view, "\n") {
@@ -47,10 +47,46 @@ func TestPagesRemainSeparateAtEverySize(t *testing.T) {
 	}
 }
 
-func TestProfilesFooterShowsProfileActions(t *testing.T) {
+func TestNarrowFooterOnlyShowsHelp(t *testing.T) {
 	m := newTestModel(t)
-	m.page = Profiles
-	for _, size := range [][2]int{{60, 18}, {100, 32}} {
+	for _, page := range []Page{Overview, Profiles, Logs, Tools, Settings} {
+		m.page = page
+		m.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
+		view := ansi.Strip(m.View().Content)
+		if !strings.Contains(view, "? help") {
+			t.Fatalf("missing help prompt on %v:\n%s", page, view)
+		}
+		for _, hidden := range []string{"a add", "e edit", "d delete", "j/k scroll", "g Geo assets", "v Xray version"} {
+			if strings.Contains(view, hidden) {
+				t.Fatalf("narrow footer leaked %q on %v:\n%s", hidden, page, view)
+			}
+		}
+	}
+	// Workflow screens use the same compact footer; their shortcuts are
+	// documented by the help view instead of consuming narrow-screen space.
+	m.openImport()
+	if view := ansi.Strip(m.View().Content); !strings.HasSuffix(strings.TrimSpace(view), "? help") {
+		t.Fatalf("form footer leaked on narrow screen:\n%s", view)
+	}
+	m.form = nil
+	m.search = &profileSearch{}
+	view := ansi.Strip(m.View().Content)
+	if !strings.Contains(view, "? help") || strings.Contains(view, "apply search") {
+		t.Fatalf("search footer leaked on narrow screen:\n%s", view)
+	}
+	m.search = nil
+	m.updates.open = true
+	if view := ansi.Strip(m.View().Content); !strings.HasSuffix(strings.TrimSpace(view), "? help") {
+		t.Fatalf("update footer leaked on narrow screen:\n%s", view)
+	}
+	m.updates.open = false
+	m.busy = true
+	if view := ansi.Strip(m.View().Content); !strings.HasSuffix(strings.TrimSpace(view), "? help") {
+		t.Fatalf("busy footer leaked on narrow screen:\n%s", view)
+	}
+	m.busy = false
+	for _, size := range [][2]int{{100, 32}} {
+		m.page = Profiles
 		m.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
 		view := ansi.Strip(m.View().Content)
 		for _, want := range []string{"add", "del", "connect", "Enter", "search"} {
@@ -58,8 +94,8 @@ func TestProfilesFooterShowsProfileActions(t *testing.T) {
 				t.Fatalf("missing %q at %v:\n%s", want, size, view)
 			}
 		}
-		if !strings.Contains(view, "rename") && !strings.Contains(view, "edit") {
-			t.Fatalf("missing rename/edit at %v:\n%s", size, view)
+		if !strings.Contains(view, "edit") {
+			t.Fatalf("missing edit at %v:\n%s", size, view)
 		}
 	}
 }
@@ -153,7 +189,7 @@ func TestHelpClosesWithoutQuitting(t *testing.T) {
 	m.page = Profiles
 	press(m, '?')
 	view := ansi.Strip(m.View().Content)
-	for _, want := range []string{"KEYBOARD", "/ search", "e rename", "Esc / q"} {
+	for _, want := range []string{"KEYBOARD", "/ search", "e edit", "Esc / q"} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("missing help %q\n%s", want, view)
 		}

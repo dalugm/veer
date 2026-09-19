@@ -127,9 +127,6 @@ func (m *Model) View() tea.View {
 	}
 	notice := " " + noticeStyle.Render(clip(safe(m.notice), w-2))
 	footer := " c connect  r restart  s stop  y QR  i details  ? help  q quit"
-	if w < 64 {
-		footer = " c connect  r restart  s stop  y QR  ? help  q quit"
-	}
 	if m.form != nil {
 		footer = " Tab next field   Ctrl+S submit   Esc cancel"
 		if m.form.pathField() {
@@ -139,16 +136,13 @@ func (m *Model) View() tea.View {
 			footer = " h/l or ←/→ source   Enter download   Esc cancel"
 		}
 	} else if m.page == Profiles {
-		footer = " a add  e rename  d delete  c connect  j/k move  Enter select  / search  y QR  q quit"
-		if w < 82 {
-			footer = " a add  e edit  d del  c connect  j/k  Enter  / search  y QR  q quit"
-		}
+		footer = " a add  e edit  d delete  c connect  j/k move  Enter select  / search  y QR  q quit"
 	} else if m.page == Logs {
 		footer = " j/k scroll  gg/G ends  Ctrl+d/u half page  ? help  q quit"
 	} else if m.page == Tools {
-		footer = " g Geo assets   u Xray update   h/l pages   ? help   q quit"
+		footer = " g Geo assets   u Xray update   ? help   q quit"
 	} else if m.page == Settings {
-		footer = " e edit settings   v check engine version   h/l pages"
+		footer = " e edit   v Xray version"
 	}
 	if m.search != nil {
 		notice = " " + m.search.input.View()
@@ -159,6 +153,11 @@ func (m *Model) View() tea.View {
 	}
 	if m.busy {
 		footer = " Esc cancel current operation   Ctrl+C stop and quit"
+	}
+	// On narrow terminals, keep the footer to a single discoverable action.
+	// Context-specific shortcuts remain available from the help view.
+	if w < 82 {
+		footer = " ? help"
 	}
 	return m.screen(
 		fit(

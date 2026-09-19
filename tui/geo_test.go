@@ -42,10 +42,14 @@ func TestGeoSourceSelector(t *testing.T) {
 	if m.form.geoSource != 2 || m.busy {
 		t.Fatal("typing changed source or started download")
 	}
-	for _, size := range [][2]int{{60, 18}, {80, 24}} {
+	for _, tc := range []struct {
+		size       [2]int
+		footerWant string
+	}{{size: [2]int{60, 18}, footerWant: "? help"}, {size: [2]int{80, 24}, footerWant: "? help"}, {size: [2]int{100, 32}, footerWant: "Enter download"}} {
+		size := tc.size
 		m.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
 		view := ansi.Strip(m.View().Content)
-		for _, want := range []string{"GitHub", "jsDelivr", "● Fastly", "Enter download"} {
+		for _, want := range []string{"GitHub", "jsDelivr", "● Fastly", tc.footerWant} {
 			if !strings.Contains(view, want) {
 				t.Fatalf("missing choice or action %q\n%s", want, view)
 			}
