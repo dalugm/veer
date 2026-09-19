@@ -11,7 +11,7 @@ lint:
     golangci-lint run ./...
 
 build:
-    go build -o bin/veer .
+    go build -trimpath -ldflags="-w -s" -o bin/veer .
 
 run:
     go run .
