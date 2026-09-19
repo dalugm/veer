@@ -23,10 +23,11 @@ type Options struct {
 
 // Info describes the privileges and local listeners requested by a configuration.
 type Info struct {
-	TUN       bool
-	TUNName   string
-	Endpoints []string
-	Protocols []string
+	TUN           bool
+	TUNName       string
+	Endpoints     []string
+	Protocols     []string
+	ProxyEndpoint string
 }
 
 // Plan contains the commands and environment needed to validate and start a core.
@@ -111,6 +112,7 @@ func Inspect(path string) (Info, error) {
 		return Info{}, errors.New("Xray config needs inbounds and outbounds")
 	}
 	info := Info{}
+	proxyMixed := false
 	for _, in := range doc.Inbounds {
 		if in.Protocol == "tun" {
 			info.TUN = true
@@ -141,9 +143,28 @@ func Inspect(path string) (Info, error) {
 			continue
 		}
 		info.Endpoints = append(info.Endpoints, net.JoinHostPort(host, strconv.Itoa(port)))
+		if (in.Protocol == "socks" || in.Protocol == "mixed") && isLocalHost(host) {
+			endpoint := net.JoinHostPort(host, strconv.Itoa(port))
+			if in.Protocol == "mixed" {
+				if !proxyMixed {
+					info.ProxyEndpoint = endpoint
+					proxyMixed = true
+				}
+			} else if info.ProxyEndpoint == "" {
+				info.ProxyEndpoint = endpoint
+			}
+		}
 	}
 	for _, out := range doc.Outbounds {
 		info.Protocols = append(info.Protocols, out.Protocol)
 	}
 	return info, nil
+}
+
+func isLocalHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }

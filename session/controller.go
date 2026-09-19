@@ -55,6 +55,7 @@ type Adapter interface {
 type Controller struct {
 	cleanupErr    error
 	prepareDNS    func(context.Context, []string, string) (network.DNSChange, error)
+	prepareProxy  func(context.Context, string, string) (network.ProxyChange, error)
 	prepareTUN    func(string) (func(context.Context) error, error)
 	sampleTraffic func(context.Context, string, string) (engine.Traffic, error)
 	mu            sync.Mutex
@@ -68,6 +69,7 @@ type Controller struct {
 func New(a Adapter) *Controller {
 	return &Controller{
 		prepareDNS:    network.PrepareDNS,
+		prepareProxy:  network.PrepareProxy,
 		prepareTUN:    prepareTUN,
 		sampleTraffic: engine.SampleTraffic,
 		adapter:       a,
@@ -130,6 +132,8 @@ func (c *Controller) Start(parent context.Context, o engine.Options) error {
 	c.mu.Unlock()
 	restore := network.Restore(func(context.Context) error { return nil })
 	var dnsMu sync.Mutex
+	var proxyMu sync.Mutex
+	var proxy network.ProxyChange
 	runtimeCleanup := func() error { return nil }
 	cleanup := func() error {
 		dnsMu.Lock()
@@ -137,6 +141,11 @@ func (c *Controller) Start(parent context.Context, o engine.Options) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		err := restore(ctx)
+		proxyMu.Lock()
+		if proxy != nil {
+			err = errors.Join(proxy.Restore(ctx), err)
+		}
+		proxyMu.Unlock()
 		if err != nil {
 			err = errors.Join(errCleanup, err)
 		}
@@ -200,6 +209,12 @@ func (c *Controller) Start(parent context.Context, o engine.Options) error {
 		waitTUN, err = c.prepareTUN(plan.Info.TUNName)
 		if err != nil {
 			return fail(err)
+		}
+	}
+	if !plan.Info.TUN && plan.Info.ProxyEndpoint != "" {
+		proxy, err = c.prepareProxy(ctx, plan.Info.ProxyEndpoint, o.NetworkService)
+		if err != nil {
+			return fail(fmt.Errorf("prepare system proxy: %w", err))
 		}
 	}
 	if err = ctx.Err(); err != nil {
@@ -312,6 +327,17 @@ func (c *Controller) Start(parent context.Context, o engine.Options) error {
 			_ = conn.Close()
 		}
 		if ready || (len(plan.Info.Endpoints) == 0 && time.Since(started) >= 400*time.Millisecond) {
+			proxyMu.Lock()
+			if proxy != nil {
+				err = proxy.Apply(readyCtx)
+			}
+			proxyMu.Unlock()
+			if err != nil {
+				return startFailed(fmt.Errorf("configure system proxy: %w", err))
+			}
+			if proxy != nil {
+				c.Log("System SOCKS proxy applied (restored on disconnect)")
+			}
 			c.mu.Lock()
 			if c.done == done && c.snapshot.State == Starting {
 				c.snapshot.State = Running

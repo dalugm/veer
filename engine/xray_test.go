@@ -12,6 +12,8 @@ func TestInspectConfig(t *testing.T) {
 		bad, tun   bool
 	}{
 		{"socks", `{"inbounds":[{"protocol":"socks","listen":"127.0.0.1","port":1080}],"outbounds":[{"protocol":"vless"}]}`, false, false},
+		{"tun-and-socks", `{"inbounds":[{"protocol":"tun"},{"protocol":"socks","listen":"127.0.0.1","port":1080}],"outbounds":[{"protocol":"freedom"}]}`, false, true},
+		{"shadowsocks", `{"inbounds":[{"protocol":"shadowsocks","listen":"127.0.0.1","port":8388}],"outbounds":[{"protocol":"freedom"}]}`, false, false},
 		{"tun", `{"inbounds":[{"protocol":"tun","settings":{"name":"veer0"}}],"outbounds":[{"protocol":"freedom"}]}`, false, true},
 		{"null", `null`, true, false},
 		{"empty", `{}`, true, false},
@@ -30,7 +32,32 @@ func TestInspectConfig(t *testing.T) {
 			if err == nil && info.TUN != tc.tun {
 				t.Fatalf("TUN=%v", info.TUN)
 			}
+			if err == nil && tc.name == "socks" && info.ProxyEndpoint != "127.0.0.1:1080" {
+				t.Fatalf("proxy endpoint %q", info.ProxyEndpoint)
+			}
+			if err == nil && tc.name != "socks" && tc.name != "tun-and-socks" &&
+				info.ProxyEndpoint != "" {
+				t.Fatalf("unexpected proxy endpoint %q", info.ProxyEndpoint)
+			}
 		})
+	}
+}
+
+func TestInspectPrefersLocalMixedInboundForSystemProxy(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "config.json")
+	data := `{"inbounds":[{"protocol":"socks","listen":"127.0.0.1","port":1080},{"protocol":"mixed","listen":"127.0.0.1","port":2080}],"outbounds":[{"protocol":"freedom"}]}`
+	if err := os.WriteFile(p, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	info, err := Inspect(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.ProxyEndpoint != "127.0.0.1:2080" {
+		t.Fatalf("proxy endpoint %q", info.ProxyEndpoint)
+	}
+	if len(info.Endpoints) != 2 {
+		t.Fatalf("endpoints %#v", info.Endpoints)
 	}
 }
 

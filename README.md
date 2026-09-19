@@ -98,6 +98,15 @@ On Windows, approve or cancel in the system UAC dialog while Veer displays a wai
 
 DNS changes occur only for TUN connections. The macOS network service setting is an optional override. Linux requires `ip` and `resolvectl`; DNS changes apply to the default network interface while preserving other links' DNS routing policies. Existing settings with custom DNS retain their servers; previously blank DNS settings use auto mode.
 
+When a configuration has no TUN inbound but has a loopback SOCKS or mixed inbound,
+Veer also applies that listener as the system SOCKS proxy while the session is
+running. The previous proxy settings are captured and restored on disconnect,
+startup failure or exit. macOS uses `networksetup`, Windows uses the current-user
+Internet Settings registry, and Linux uses GNOME-compatible `gsettings`. A TUN
+inbound takes precedence, so a configuration containing both TUN and SOCKS does
+not change the system proxy; a Shadowsocks inbound is not itself a system SOCKS
+proxy and is left unchanged.
+
 Native Windows UAC/window behavior and real TUN networking require testing on the target host; cross-compilation does not validate them.
 
 ## Geo assets
