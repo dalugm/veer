@@ -181,7 +181,7 @@ func renderQR(code *qr.QrCode) string {
 			b.WriteByte('\n')
 		}
 		b.WriteString("\x1b[38;2;17;24;39;48;2;220;228;242m")
-		for x := 0; x < size; x++ {
+		for x := range size {
 			top, bottom := code.Module(x-4, y-4), code.Module(x-4, y-3)
 			switch {
 			case top && bottom:

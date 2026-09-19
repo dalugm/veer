@@ -43,7 +43,7 @@ func TestNavigationAndResize(t *testing.T) {
 		if !v.AltScreen {
 			t.Fatal("not full-screen")
 		}
-		for _, line := range strings.Split(v.Content, "\n") {
+		for line := range strings.SplitSeq(v.Content, "\n") {
 			if ansi.StringWidth(line) > size[0] {
 				t.Fatalf("overflow %d: %q", size[0], line)
 			}
@@ -132,7 +132,7 @@ func TestLastFormFieldVisibleAtMinimumSize(t *testing.T) {
 	m := newTestModel(t)
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	m.openSettings()
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	}
 	m.form.inputs[4].SetValue("output-visible")

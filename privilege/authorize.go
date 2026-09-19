@@ -11,8 +11,7 @@ import (
 // AuthorizationCached checks sudo without prompting or reading terminal input.
 func AuthorizationCached(ctx context.Context) (bool, error) {
 	err := sudoAuthorization(ctx, "sudo", nil, true)
-	var exit *exec.ExitError
-	if errors.As(err, &exit) {
+	if _, ok := errors.AsType[*exec.ExitError](err); ok {
 		return false, nil
 	}
 	return err == nil, err

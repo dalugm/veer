@@ -203,7 +203,7 @@ func TestTrafficLivePreview(t *testing.T) {
 	m := newTestModel(t)
 	now := time.Unix(100, 0)
 	m.snapshot = session.Snapshot{State: session.Running, PID: 42, Since: time.Now()}
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		m.snapshot.Traffic = engine.Traffic{
 			Upload:   uint64(i*i) * 1024,
 			Download: uint64(i*i) * 10240,
@@ -221,7 +221,7 @@ func TestTrafficLivePreview(t *testing.T) {
 			!strings.Contains(view, "? help") {
 			t.Fatal(view)
 		}
-		for _, line := range strings.Split(view, "\n") {
+		for line := range strings.SplitSeq(view, "\n") {
 			if ansi.StringWidth(line) > size[0] {
 				t.Fatalf("overflow %q", line)
 			}
@@ -245,7 +245,7 @@ func TestTrafficPeakLabelsFollowVisibleWindow(t *testing.T) {
 			(!strings.Contains(view, "peak 1.0 KiB/s") || !strings.Contains(view, "peak 2.0 KiB/s") || strings.Contains(view, "976.6")) {
 			t.Fatal("hidden history affected peak: " + view)
 		}
-		for _, line := range strings.Split(view, "\n") {
+		for line := range strings.SplitSeq(view, "\n") {
 			if ansi.StringWidth(line) > size[0] {
 				t.Fatal("overflow: " + line)
 			}

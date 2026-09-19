@@ -58,7 +58,7 @@ func TestQRSharingAndNavigation(t *testing.T) {
 	if strings.Count(modal, "\n") >= m.height-1 {
 		t.Fatal("QR modal expanded to fullscreen")
 	}
-	for _, line := range strings.Split(ansi.Strip(renderQR(m.qr.items[1].code)), "\n") {
+	for line := range strings.SplitSeq(ansi.Strip(renderQR(m.qr.items[1].code)), "\n") {
 		if !strings.Contains(plain, line) {
 			t.Fatal("QR row or quiet zone cropped by overlay")
 		}

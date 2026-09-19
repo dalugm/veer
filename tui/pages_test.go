@@ -28,7 +28,7 @@ func TestPagesRemainSeparateAtEverySize(t *testing.T) {
 			!strings.Contains(view, "? help") {
 			t.Fatal(view)
 		}
-		for _, line := range strings.Split(view, "\n") {
+		for line := range strings.SplitSeq(view, "\n") {
 			if ansi.StringWidth(line) > size[0] {
 				t.Fatal("overflow")
 			}

@@ -24,7 +24,7 @@ func Version(ctx context.Context, binary string) (string, error) {
 	if out.overflow {
 		return "", errors.New("xray version output exceeds 4 KiB")
 	}
-	v := strings.SplitN(strings.TrimSpace(out.String()), "\n", 2)[0]
+	v, _, _ := strings.Cut(strings.TrimSpace(out.String()), "\n")
 	if v == "" {
 		return "", errors.New("engine returned no version information")
 	}

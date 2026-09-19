@@ -111,7 +111,7 @@ func TestCancelStopsProcess(t *testing.T) {
 
 func TestLogBufferIsBoundedAndSanitized(t *testing.T) {
 	c := New(fakeEngine{})
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		c.Log(fmt.Sprintf("\x1b[31mline %d\x1b[0m\x00", i))
 	}
 	s := c.Snapshot()

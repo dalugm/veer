@@ -375,7 +375,7 @@ func TestInstallRejectsUnsafeArchiveOrWrongCore(t *testing.T) {
 			if kind == "symlink" || kind == "duplicate" {
 				var buf bytes.Buffer
 				zw := zip.NewWriter(&buf)
-				for i := 0; i < 2; i++ {
+				for range 2 {
 					h := &zip.FileHeader{Name: "xray"}
 					if kind == "symlink" {
 						h.SetMode(os.ModeSymlink | 0o777)

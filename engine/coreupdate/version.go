@@ -75,7 +75,7 @@ func normalizeVersion(v string) string {
 	if len(v) > 128 || !semver.IsValid(v) {
 		return ""
 	}
-	core := strings.SplitN(strings.SplitN(v, "+", 2)[0], "-", 2)[0]
+	core, _, _ := strings.Cut(strings.SplitN(v, "+", 2)[0], "-")
 	if strings.Count(core, ".") != 2 {
 		return ""
 	}
