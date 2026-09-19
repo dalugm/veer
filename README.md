@@ -35,7 +35,7 @@ Profiles reference existing files. Veer does not install Xray automatically or p
 | Page | Contents and actions |
 | --- | --- |
 | **1 Overview** | Connection status beside the selected profile, core version, traffic chart, mode, DNS and listeners. **i** opens process and path details. |
-| **2 Profiles** | **/** filters names, engines and paths. **Enter** selects; **a** adds, **e** renames, **d** removes a profile entry. **y** shares the focused profile. |
+| **2 Profiles** | **/** filters names, engines and paths. **Enter** selects; **a** adds, **e** edits the name or config path, **d** removes a profile entry. **c** connects and **y** shares the focused profile. |
 | **3 Logs** | Colored severity levels, timestamps, sources and wrapped messages. **G** resumes following the latest output. |
 | **4 Tools** | Geosite and GeoIP versions or file timestamps. **g** opens the Geo asset updater; **u** opens the Xray core updater. |
 | **5 Settings** | **e** edits the core path, Geo directory and DNS preferences. **v** checks the core version. |

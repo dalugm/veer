@@ -8,6 +8,7 @@ import (
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"github.com/dalugm/veer/engine"
 	"github.com/dalugm/veer/geofile"
 	"github.com/dalugm/veer/settings"
 )
@@ -58,18 +59,19 @@ func (m *Model) openImport() {
 	)
 }
 
-func (m *Model) openRename() {
+func (m *Model) openEdit() tea.Cmd {
 	if !m.hasFocusedProfile() {
-		return
+		return nil
 	}
 	p := m.config.Profiles[m.cursor]
 	m.openForm(
-		"rename",
-		"Rename profile",
-		"Change the label shown in Veer.",
-		[]string{"Profile name"},
-		[]string{p.Name},
+		"edit",
+		"Edit profile",
+		"Change the profile name or Xray JSON config path.",
+		[]string{"Profile name", "Xray config path"},
+		[]string{p.Name, p.Path},
 	)
+	return m.requestPathCompletion()
 }
 
 func (m *Model) openSettings() tea.Cmd {
@@ -207,11 +209,28 @@ func (m *Model) submitForm() tea.Cmd {
 			if err := c.AddProfile(values[0], cleanPath(values[1])); err != nil {
 				return actionMsg{err: err}
 			}
-		case "rename":
+		case "edit":
 			if values[0] == "" {
 				return actionMsg{err: fmt.Errorf("enter a profile name")}
 			}
+			path := cleanPath(values[1])
+			if path == "" {
+				return actionMsg{err: fmt.Errorf("enter an Xray config path")}
+			}
+			path, err := filepath.Abs(path)
+			if err != nil {
+				return actionMsg{err: err}
+			}
+			if _, err := engine.Inspect(path); err != nil {
+				return actionMsg{err: err}
+			}
+			for i, profile := range c.Profiles {
+				if i != cursor && profile.Path == path {
+					return actionMsg{err: fmt.Errorf("this config is already in Profiles")}
+				}
+			}
 			c.Profiles[cursor].Name = values[0]
+			c.Profiles[cursor].Path = path
 		case "settings":
 			if values[0] == "" {
 				return actionMsg{err: fmt.Errorf("enter an Xray executable")}

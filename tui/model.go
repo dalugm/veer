@@ -411,7 +411,12 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			case Settings:
 				return m, m.openSettings()
 			case Profiles:
-				m.openRename()
+				if m.running() {
+					m.bad = true
+					m.notice = "Disconnect before editing a profile."
+				} else {
+					return m, m.openEdit()
+				}
 			}
 		case "c":
 			return m, m.connect()

@@ -80,6 +80,31 @@ func TestImportFormPersistsProfile(t *testing.T) {
 	}
 }
 
+func TestEditProfileUpdatesNameAndConfigPath(t *testing.T) {
+	const profileJSON = `{"inbounds":[{"protocol":"socks","port":1080}],"outbounds":[{"protocol":"freedom"}]}`
+	m := newTestModel(t)
+	path := filepath.Join(t.TempDir(), "profile.json")
+	if err := os.WriteFile(path, []byte(profileJSON), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	m.config.Profiles = []settings.Profile{{ID: "one", Name: "Old", Engine: "xray", Path: path}}
+	m.cursor, m.page = 0, Profiles
+	_, cmd := m.Update(tea.KeyPressMsg{Code: 'e', Text: "e"})
+	if cmd != nil || m.form == nil || m.form.kind != "edit" {
+		t.Fatal("e did not open profile editor")
+	}
+	m.form.inputs[0].SetValue("New")
+	if cmd := m.submitForm(); cmd == nil {
+		t.Fatal("edit did not submit")
+	} else {
+		m.Update(cmd())
+	}
+	if len(m.config.Profiles) != 1 || m.config.Profiles[0].Name != "New" ||
+		m.config.Profiles[0].Path != path {
+		t.Fatalf("profile was not edited: %+v", m.config.Profiles)
+	}
+}
+
 func TestInvalidImportKeepsForm(t *testing.T) {
 	m := newTestModel(t)
 	m.openImport()
@@ -135,7 +160,7 @@ func TestOverviewShowsCoreWithoutRepeatingState(t *testing.T) {
 		if !strings.Contains(view, "Xray 26.3.27") {
 			t.Fatalf("missing core at %v:\n%s", size, view)
 		}
-		if !strings.Contains(view, "TRAFFIC") || !strings.Contains(view, "quit") {
+		if !strings.Contains(view, "TRAFFIC") || !strings.Contains(view, "? help") {
 			t.Fatal(view)
 		}
 	}

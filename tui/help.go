@@ -19,7 +19,7 @@ func (m *Model) helpView(w, h int) string {
 	switch m.page {
 	case Profiles:
 		lines = append(lines, "/ search · Enter select · Esc clear search",
-			"a add · e rename · d remove · y QR · i details",
+			"a add · e edit · d remove · y QR · i details",
 			"c connect selected profile · s stop")
 	case Logs:
 		lines = append(lines, "c connect · s stop · a add profile",
