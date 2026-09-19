@@ -139,7 +139,10 @@ func (m *Model) View() tea.View {
 			footer = " h/l or ←/→ source   Enter download   Esc cancel"
 		}
 	} else if m.page == Profiles {
-		footer = " j/k move  / search  Enter select  y QR  ? help  q quit"
+		footer = " a add  e rename  d delete  c connect  j/k move  Enter select  / search  y QR  q quit"
+		if w < 82 {
+			footer = " a add  e edit  d del  c connect  j/k  Enter  / search  y QR  q quit"
+		}
 	} else if m.page == Logs {
 		footer = " j/k scroll  gg/G ends  Ctrl+d/u half page  ? help  q quit"
 	} else if m.page == Tools {

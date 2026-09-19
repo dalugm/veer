@@ -47,6 +47,23 @@ func TestPagesRemainSeparateAtEverySize(t *testing.T) {
 	}
 }
 
+func TestProfilesFooterShowsProfileActions(t *testing.T) {
+	m := newTestModel(t)
+	m.page = Profiles
+	for _, size := range [][2]int{{60, 18}, {100, 32}} {
+		m.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
+		view := ansi.Strip(m.View().Content)
+		for _, want := range []string{"add", "del", "connect", "Enter", "search"} {
+			if !strings.Contains(view, want) {
+				t.Fatalf("missing %q at %v:\n%s", want, size, view)
+			}
+		}
+		if !strings.Contains(view, "rename") && !strings.Contains(view, "edit") {
+			t.Fatalf("missing rename/edit at %v:\n%s", size, view)
+		}
+	}
+}
+
 func TestProfileSearchUsesOriginalIndices(t *testing.T) {
 	m := newTestModel(t)
 	m.page = Profiles
