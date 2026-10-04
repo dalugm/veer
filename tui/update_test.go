@@ -151,7 +151,7 @@ func TestUpdaterRequiresCheckAndExplicitConfirmation(t *testing.T) {
 func TestOfflineRestoreRequiresConfirmationAndPersistsBackup(t *testing.T) {
 	m, f := updaterModel(t)
 	press(m, 'u')
-	runCommands(m, m.checkUpdate(true))
+	runCommands(m, m.checkUpdate())
 	press(m, 'u')
 	_, cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	runCommands(m, cmd)
@@ -191,23 +191,23 @@ func TestOfflineRestoreRequiresConfirmationAndPersistsBackup(t *testing.T) {
 
 func TestBackgroundUpdateCheckPreservesOperationAndIgnoresStaleChannel(t *testing.T) {
 	m, _ := updaterModel(t)
-	cmd := m.checkUpdate(false)
+	cmd := m.checkUpdate()
 	m.busy, m.notice = true, "Connecting"
 	m.Update(cmd())
 	if !m.busy || m.notice != "Connecting" || m.updates.latest == nil {
 		t.Fatal("background result interfered with operation")
 	}
 	m.busy = false
-	old := m.checkUpdate(false)()
+	old := m.checkUpdate()()
 	m.config.CoreUpdateChannel = "preview"
-	m.checkUpdate(false)
+	m.checkUpdate()
 	m.Update(old)
 	if m.updates.latest != nil || !m.updates.checking {
 		t.Fatal("stale check changed current channel")
 	}
 }
 
-func TestChannelPersistsAndRefreshesCandidate(t *testing.T) {
+func TestChannelPersistsWithoutChecking(t *testing.T) {
 	m, f := updaterModel(t)
 	press(m, 'u')
 	if cmd := m.updateKey("left"); cmd != nil || m.config.CoreUpdateChannel != "stable" || m.busy {
@@ -220,7 +220,7 @@ func TestChannelPersistsAndRefreshesCandidate(t *testing.T) {
 	runCommands(m, cmd)
 	c, err := settings.Load(m.path)
 	if err != nil || c.CoreUpdateChannel != "preview" || m.config.CoreUpdateChannel != "preview" ||
-		f.channel != update.Preview {
+		f.checks != 0 {
 		t.Fatalf("channel save: %+v %v", c, err)
 	}
 	if m.notice != "" {
@@ -233,7 +233,7 @@ func TestChannelPersistsAndRefreshesCandidate(t *testing.T) {
 		t.Fatal("selecting Preview again should do nothing")
 	}
 	runCommands(m, m.updateKey("left"))
-	if m.config.CoreUpdateChannel != "stable" || f.channel != update.Stable {
+	if m.config.CoreUpdateChannel != "stable" || f.checks != 0 {
 		t.Fatal("left should restore Stable")
 	}
 }
@@ -248,7 +248,7 @@ func (updateRunningBackend) Start(context.Context, engine.Options) error { retur
 func TestUpdaterKeepsActiveSessionAndRecoversFromFailure(t *testing.T) {
 	m, f := updaterModel(t)
 	press(m, 'u')
-	runCommands(m, m.checkUpdate(true))
+	runCommands(m, m.checkUpdate())
 	m.backend = updateRunningBackend{}
 	m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if m.confirmation != "update" || f.installs != 0 || m.bad {
@@ -284,7 +284,7 @@ func TestUpdaterKeepsActiveSessionAndRecoversFromFailure(t *testing.T) {
 func TestUpdaterFitsMinimumTerminalAndSanitizes(t *testing.T) {
 	m, _ := updaterModel(t)
 	press(m, 'u')
-	runCommands(m, m.checkUpdate(true))
+	runCommands(m, m.checkUpdate())
 	for _, size := range [][2]int{{60, 18}, {80, 24}, {120, 36}} {
 		m.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
 		view := ansi.Strip(m.View().Content)
@@ -309,7 +309,7 @@ func TestUpdaterFitsMinimumTerminalAndSanitizes(t *testing.T) {
 func TestQuitCancelsUpdateCheckAndQueuedInstall(t *testing.T) {
 	m, f := updaterModel(t)
 	f.started = make(chan struct{})
-	cmd := m.checkUpdate(false)
+	cmd := m.checkUpdate()
 	result := make(chan tea.Msg, 1)
 	go func() { result <- cmd() }()
 	<-f.started
@@ -333,7 +333,7 @@ func TestQuitCancelsUpdateCheckAndQueuedInstall(t *testing.T) {
 	}
 }
 
-func TestStartupChecksWithoutDownloading(t *testing.T) {
+func TestStartupDoesNotCheckUpdates(t *testing.T) {
 	m, f := updaterModel(t)
 	m.config.EnginePath = "missing-xray-for-test"
 	cmd := m.Init()
@@ -341,24 +341,24 @@ func TestStartupChecksWithoutDownloading(t *testing.T) {
 		t.Fatal("Init performed blocking I/O")
 	}
 	runCommands(m, cmd)
-	if f.checks != 1 || f.installs != 0 || m.updates.latest == nil {
-		t.Fatal("startup did not check or downloaded without confirmation")
+	if f.checks != 0 || f.installs != 0 || m.updates.latest != nil || m.updates.checking {
+		t.Fatal("startup checked updates without pressing r")
 	}
 }
 
 func TestChangedCoreIgnoresOldUpdateResult(t *testing.T) {
-	m, _ := updaterModel(t)
-	old := m.checkUpdate(false)()
+	m, f := updaterModel(t)
+	old := m.checkUpdate()()
 	c := m.config
 	c.EnginePath = "another-core"
 	_, next := m.Update(actionMsg{config: &c})
 	m.Update(old)
-	if m.updates.latest != nil || !m.updates.checking {
+	if m.updates.latest != nil || m.updates.checking {
 		t.Fatal("old core result changed candidate")
 	}
 	runCommands(m, next)
-	if m.updates.binary != "another-core" {
-		t.Fatal("new core did not get checked")
+	if f.checks != 1 || m.updates.status != "Press r to check." {
+		t.Fatal("changing core automatically checked updates")
 	}
 }
 

@@ -170,7 +170,8 @@ func TestBackgroundVersionDoesNotInterruptSessionWork(t *testing.T) {
 	m := newTestModel(t)
 	m.busy, m.notice = true, "Connecting"
 	m.Update(engineVersionMsg{binary: m.config.EnginePath, version: "Xray 26.3.27"})
-	if m.version != "Xray 26.3.27" || !m.busy || m.notice != "Connecting" {
+	if m.version != "Xray 26.3.27" || m.updates.current != "v26.3.27" || !m.busy ||
+		m.notice != "Connecting" {
 		t.Fatal("version probe changed operation state")
 	}
 	m.Update(engineVersionMsg{binary: "/old/core", version: "Xray old"})

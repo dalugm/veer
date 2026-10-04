@@ -138,7 +138,7 @@ func New(ctx context.Context, path string, backend privilege.Backend) (*Model, e
 
 // Init starts session updates and local core/version queries.
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(tick(), m.loadVersion(), m.loadGeoInfo(m.geoDirectory()), m.checkUpdate(false))
+	return tea.Batch(tick(), m.loadVersion(), m.loadGeoInfo(m.geoDirectory()))
 }
 
 func tick() tea.Cmd {

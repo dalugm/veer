@@ -14,7 +14,7 @@ func TestSelectedVersionIsConfirmedAndInstalled(t *testing.T) {
 	m, f := updaterModel(t)
 	f.releases = []update.Release{{Version: "v1.2.0"}, {Version: "v1.1.0"}}
 	press(m, 'u')
-	runCommands(m, m.checkUpdate(true))
+	runCommands(m, m.checkUpdate())
 	press(m, 'j')
 	press(m, 'u')
 	view := ansi.Strip(m.View().Content)
@@ -39,7 +39,7 @@ func TestVersionListScrollsAndResetsOnChannelChange(t *testing.T) {
 		f.releases = append(f.releases, update.Release{Version: fmt.Sprintf("v1.%d.0", i)})
 	}
 	press(m, 'u')
-	runCommands(m, m.checkUpdate(true))
+	runCommands(m, m.checkUpdate())
 	for _, size := range [][2]int{{60, 18}, {80, 24}, {120, 36}} {
 		m.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
 		m.Update(tea.KeyPressMsg{Code: tea.KeyEnd})

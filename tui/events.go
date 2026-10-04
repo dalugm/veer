@@ -64,6 +64,10 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case engineVersionMsg:
 		if msg.binary == m.config.EnginePath && msg.seq == m.coreVersionSeq {
 			m.version = msg.version
+			m.updates.current = update.ParseVersion(msg.version)
+			if m.updates.current == "" {
+				m.updates.current = "Unavailable"
+			}
 		}
 		return m, nil
 	case tea.WindowSizeMsg:
@@ -138,7 +142,11 @@ func (m *Model) actionResult(msg actionMsg) tea.Cmd {
 				refresh = m.loadVersion()
 			}
 			if changedChannel || changedCore {
-				refresh = tea.Batch(refresh, m.checkUpdate(false))
+				m.cancelUpdateCheck()
+				m.updates.seq++
+				m.updates.checking, m.updates.latest = false, nil
+				m.updates.releases, m.updates.cursor = nil, 0
+				m.updates.status = "Press r to check."
 			}
 		}
 		if msg.closeForm {

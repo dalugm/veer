@@ -33,7 +33,6 @@ type appUpdate struct {
 type updateCheckedMsg struct {
 	seq             uint64
 	channel         update.Channel
-	manual          bool
 	binary, version string
 	releases        []update.Release
 	err             error
@@ -52,7 +51,7 @@ func (m *Model) cancelUpdateCheck() {
 	}
 }
 
-func (m *Model) checkUpdate(manual bool) tea.Cmd {
+func (m *Model) checkUpdate() tea.Cmd {
 	if m.updates.client == nil {
 		return nil
 	}
@@ -75,7 +74,6 @@ func (m *Model) checkUpdate(manual bool) tea.Cmd {
 		return updateCheckedMsg{
 			seq:      seq,
 			channel:  channel,
-			manual:   manual,
 			releases: releases,
 			err:      err,
 			binary:   binary,
@@ -120,7 +118,7 @@ func (m *Model) updateChecked(msg updateCheckedMsg) {
 	default:
 		m.updates.status = "No newer release."
 	}
-	if msg.manual && m.updates.open && !m.busy && m.confirmation == "" {
+	if m.updates.open && !m.busy && m.confirmation == "" {
 		m.bad, m.notice = msg.err != nil, m.updates.status
 	}
 }
@@ -143,7 +141,7 @@ func (m *Model) updateKey(key string) tea.Cmd {
 		m.updates.open = false
 	case "r":
 		if !m.updates.checking {
-			return m.checkUpdate(true)
+			return m.checkUpdate()
 		}
 	case "b":
 		if m.availableBackup() != "" {
