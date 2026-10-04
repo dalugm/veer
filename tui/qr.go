@@ -12,7 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/dalugm/veer/settings"
-	"github.com/dalugm/veer/subscription"
+	"github.com/dalugm/veer/sharelink"
 	qr "github.com/piglig/go-qr"
 )
 
@@ -70,7 +70,7 @@ func loadQR(ctx context.Context, p settings.Profile) (*qrModal, error) {
 	if err != nil || len(data) > limit {
 		return nil, errors.New("cannot share profile: unreadable or larger than 4 MiB")
 	}
-	var config subscription.XrayConfig
+	var config sharelink.XrayConfig
 	if json.Unmarshal(data, &config) != nil {
 		return nil, errors.New("cannot share profile: invalid JSON")
 	}
@@ -84,7 +84,7 @@ func loadQR(ctx context.Context, p settings.Profile) (*qrModal, error) {
 		}
 		// Convert each outbound separately; an empty or repeated tag must not select
 		// another outbound accidentally. Raw URIs and conversion errors stay private.
-		single := subscription.XrayConfig{Outbounds: []subscription.Outbound{out}}
+		single := sharelink.XrayConfig{Outbounds: []sharelink.Outbound{out}}
 		link, err := single.ToVLESSLink("", p.Name)
 		item := qrItem{}
 		if err != nil {
