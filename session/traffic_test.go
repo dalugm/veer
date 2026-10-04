@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"sync"
 	"testing"
@@ -15,6 +16,50 @@ import (
 type fakeDNS struct {
 	apply   func(context.Context) error
 	restore func(context.Context) error
+}
+
+func TestCoreManagedDNSOwnership(t *testing.T) {
+	for _, tc := range []struct {
+		platform string
+		enabled  bool
+		wantVeer bool
+	}{
+		{"linux", true, false},
+		{"linux", false, true},
+		{"darwin", true, true},
+	} {
+		t.Run(tc.platform+"/"+fmt.Sprint(tc.enabled), func(t *testing.T) {
+			c := newFakeController(t, engine.Info{TUN: true, TUNSystemDNS: tc.enabled})
+			c.platform = tc.platform
+			var prepared, applied, restored, ready bool
+			c.prepareDNS = func(context.Context, []string, string) (network.DNSChange, error) {
+				prepared = true
+				return fakeDNS{
+					apply:   func(context.Context) error { applied = true; return nil },
+					restore: func(context.Context) error { restored = true; return nil },
+				}, nil
+			}
+			c.prepareTUN = func(string) (func(context.Context) error, error) {
+				return func(context.Context) error { ready = true; return nil }, nil
+			}
+			if err := c.Start(t.Context(), engine.Options{DNS: []string{"1.1.1.1"}}); err != nil {
+				t.Fatal(err)
+			}
+			if err := c.Stop(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			if !ready || prepared != tc.wantVeer || applied != tc.wantVeer ||
+				restored != tc.wantVeer {
+				t.Fatalf(
+					"ready=%v prepared=%v applied=%v restored=%v",
+					ready,
+					prepared,
+					applied,
+					restored,
+				)
+			}
+		})
+	}
 }
 
 func (d fakeDNS) Apply(ctx context.Context) error {

@@ -17,6 +17,7 @@ type networkState struct {
 	dns     network.DNSChange
 	proxy   network.ProxyChange
 	waitTUN func(context.Context) error
+	coreDNS bool
 }
 
 func (c *Controller) prepareNetwork(
@@ -25,14 +26,15 @@ func (c *Controller) prepareNetwork(
 	options engine.Options,
 	state *networkState,
 ) error {
-	if info.TUN && len(options.DNS) > 0 {
+	state.coreDNS = info.TUN && info.TUNSystemDNS && c.platform == "linux"
+	if info.TUN && len(options.DNS) > 0 && !state.coreDNS {
 		dns, err := c.prepareDNS(ctx, options.DNS, options.NetworkService)
 		if err != nil {
 			return err
 		}
 		state.dns = dns
 	}
-	if state.dns != nil {
+	if state.dns != nil || state.coreDNS {
 		wait, err := c.prepareTUN(info.TUNName)
 		if err != nil {
 			return err
@@ -67,6 +69,8 @@ func (s *networkState) readyTUN(ctx context.Context, log func(string)) error {
 			return fmt.Errorf("configure TUN DNS: %w", err)
 		}
 		log("TUN is ready; system DNS applied (restored on disconnect)")
+	} else if s.coreDNS {
+		log("TUN is ready; system DNS is managed by Xray")
 	}
 	return nil
 }

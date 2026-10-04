@@ -25,6 +25,7 @@ type Options struct {
 type Info struct {
 	TUN           bool
 	TUNName       string
+	TUNSystemDNS  bool
 	Endpoints     []string
 	Protocols     []string
 	ProxyEndpoint string
@@ -96,7 +97,8 @@ func Inspect(path string) (Info, error) {
 		Inbounds []struct {
 			Protocol string `json:"protocol"`
 			Settings struct {
-				Name string `json:"name"`
+				Name                   string `json:"name"`
+				AutoSystemDnsToGateway bool   `json:"autoSystemDnsToGateway"`
 			} `json:"settings"`
 			Listen string          `json:"listen"`
 			Port   json.RawMessage `json:"port"`
@@ -117,6 +119,7 @@ func Inspect(path string) (Info, error) {
 		if in.Protocol == "tun" {
 			info.TUN = true
 			info.TUNName = in.Settings.Name
+			info.TUNSystemDNS = info.TUNSystemDNS || in.Settings.AutoSystemDnsToGateway
 			continue
 		}
 		if in.Protocol != "socks" && in.Protocol != "http" && in.Protocol != "mixed" {

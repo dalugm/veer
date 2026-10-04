@@ -101,3 +101,21 @@ func TestInspectTUNInterfaceName(t *testing.T) {
 		t.Fatalf("TUN name %q", info.TUNName)
 	}
 }
+
+func TestInspectTUNSystemDNS(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		p := filepath.Join(t.TempDir(), "config.json")
+		flag := "false"
+		if enabled {
+			flag = "true"
+		}
+		data := `{"inbounds":[{"protocol":"tun","settings":{"autoSystemDnsToGateway":` + flag + `}}],"outbounds":[{"protocol":"freedom"}]}`
+		if err := os.WriteFile(p, []byte(data), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		info, err := Inspect(p)
+		if err != nil || !info.TUN || info.TUNSystemDNS != enabled {
+			t.Fatalf("enabled=%v: info=%+v err=%v", enabled, info, err)
+		}
+	}
+}
