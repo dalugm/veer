@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -99,7 +100,7 @@ func TestCancellationWaitsForHelperCleanupResult(t *testing.T) {
 				t.Error(err)
 				return
 			}
-			var command string
+			var command helperCommand
 			err = dec.Decode(&command)
 			stopped <- err
 			if err != nil {
@@ -147,4 +148,184 @@ func TestCancellationWaitsForHelperCleanupResult(t *testing.T) {
 	if err := r.Stop(t.Context()); err == nil {
 		t.Fatal("subsequent stop lost cleanup failure")
 	}
+}
+
+type recoveryBackend struct {
+	mu       sync.Mutex
+	snapshot session.Snapshot
+	attempts int
+}
+
+func (b *recoveryBackend) Start(context.Context, engine.Options) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.snapshot = session.Snapshot{State: session.Running}
+	return nil
+}
+
+func (b *recoveryBackend) Snapshot() session.Snapshot {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.snapshot
+}
+
+func (b *recoveryBackend) Stop(context.Context) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.attempts++
+	if b.attempts == 1 {
+		b.snapshot = session.Snapshot{
+			State:          session.Failed,
+			CleanupPending: true,
+			Error:          "restore denied",
+		}
+		return errors.New(b.snapshot.Error)
+	}
+	b.snapshot = session.Snapshot{State: session.Stopped}
+	return nil
+}
+
+func TestHelperRetainsOriginalBackendForCleanupRetry(t *testing.T) {
+	controller := &recoveryBackend{}
+	served := make(chan error, 1)
+	r := &remote{launch: func(_ string, addr, token string) (<-chan error, error) {
+		go func() {
+			conn, err := net.Dial("tcp", addr)
+			if err != nil {
+				served <- err
+				return
+			}
+			enc := json.NewEncoder(conn)
+			if err := enc.Encode(token); err != nil {
+				served <- err
+				_ = conn.Close()
+				return
+			}
+			dec := json.NewDecoder(conn)
+			var options engine.Options
+			if err := dec.Decode(&options); err != nil {
+				served <- err
+				_ = conn.Close()
+				return
+			}
+			served <- serveController(t.Context(), conn, dec, controller, options)
+		}()
+		return nil, nil
+	}}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	if err := r.Start(ctx, engine.Options{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Stop(ctx); err == nil {
+		t.Fatal("restoration failure was ignored")
+	}
+	manager := &Manager{current: r}
+	if err := manager.Start(
+		ctx,
+		engine.Options{},
+	); err == nil ||
+		!strings.Contains(err.Error(), "restore") {
+		t.Fatalf("replaced unresolved session: %v", err)
+	}
+	if err := r.Stop(ctx); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-served:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-ctx.Done():
+		t.Fatal("helper did not finish after restoration")
+	}
+	<-r.done
+	if s := r.Snapshot(); s.State != session.Stopped || s.CleanupPending {
+		t.Fatalf("recovery snapshot: %+v", s)
+	}
+}
+
+func TestCancelledStartupReportsPendingCleanupWithoutWaitingForHelperExit(t *testing.T) {
+	connected := make(chan struct{})
+	r := &remote{launch: func(_ string, addr, token string) (<-chan error, error) {
+		go func() {
+			conn, err := net.Dial("tcp", addr)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			defer func() { _ = conn.Close() }()
+			enc, dec := json.NewEncoder(conn), json.NewDecoder(conn)
+			if err := enc.Encode(token); err != nil {
+				t.Error(err)
+				return
+			}
+			var options engine.Options
+			if err := dec.Decode(&options); err != nil {
+				t.Error(err)
+				return
+			}
+			if err := enc.Encode(
+				helperUpdate{Snapshot: session.Snapshot{State: session.Starting}},
+			); err != nil {
+				t.Error(err)
+				return
+			}
+			close(connected)
+			var stop helperCommand
+			if err := dec.Decode(&stop); err != nil {
+				t.Error(err)
+				return
+			}
+			failure := helperUpdate{
+				Snapshot: session.Snapshot{
+					State:          session.Failed,
+					CleanupPending: true,
+					Error:          "restore denied",
+				},
+				StopResult: &helperStopResult{ID: stop.ID, Error: "restore denied"},
+			}
+			if err := enc.Encode(failure); err != nil {
+				t.Error(err)
+				return
+			}
+			if err := dec.Decode(&stop); err != nil {
+				t.Error(err)
+				return
+			}
+			if err := enc.Encode(
+				helperUpdate{
+					Snapshot:   session.Snapshot{State: session.Stopped},
+					StopResult: &helperStopResult{ID: stop.ID},
+				},
+			); err != nil {
+				t.Error(err)
+			}
+		}()
+		return nil, nil
+	}}
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	started := make(chan error, 1)
+	go func() { started <- r.Start(ctx, engine.Options{}) }()
+	select {
+	case <-connected:
+	case <-time.After(3 * time.Second):
+		t.Fatal("helper did not connect")
+	}
+	cancel()
+	select {
+	case err := <-started:
+		if err == nil || !r.Snapshot().CleanupPending {
+			t.Fatalf("startup lost restoration failure: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("cancelled startup waited indefinitely for recovery")
+	}
+	stopCtx, stop := context.WithTimeout(t.Context(), 3*time.Second)
+	defer stop()
+	if err := r.Stop(stopCtx); err != nil {
+		t.Fatal(err)
+	}
+	<-r.done
 }

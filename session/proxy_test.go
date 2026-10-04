@@ -83,3 +83,35 @@ func TestSystemProxyApplyFailureStopsSession(t *testing.T) {
 		t.Fatalf("proxy lifecycle: %+v", proxy)
 	}
 }
+
+func TestStopRetriesFailedRestorationBeforeReconnect(t *testing.T) {
+	backend := newFakeController(t, engine.Info{ProxyEndpoint: "127.0.0.1:1080"})
+	proxy := &fakeProxyChange{restoreErr: errors.New("temporarily denied")}
+	backend.prepareProxy = func(context.Context, string, string) (network.ProxyChange, error) { return proxy, nil }
+	if err := backend.Start(t.Context(), engine.Options{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := backend.Stop(t.Context()); err == nil {
+		t.Fatal("restoration failure was ignored")
+	}
+	if !backend.Snapshot().CleanupPending {
+		t.Fatal("lost original restoration state")
+	}
+	if err := backend.Start(t.Context(), engine.Options{}); err == nil {
+		t.Fatal("reconnected before restoration")
+	}
+	proxy.restoreErr = nil
+	if err := backend.Stop(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if proxy.restored != 2 || backend.Snapshot().CleanupPending ||
+		backend.Snapshot().State != Stopped {
+		t.Fatalf("restoration was not retried: %+v", backend.Snapshot())
+	}
+	if err := backend.Start(t.Context(), engine.Options{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := backend.Stop(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -19,15 +19,37 @@ type restartBackend struct {
 	state             session.State
 	starts, stops     int
 	stopErr, startErr error
+	cleanupPending    bool
 }
 
-func (b *restartBackend) Snapshot() session.Snapshot { return session.Snapshot{State: b.state} }
+func (b *restartBackend) Snapshot() session.Snapshot {
+	return session.Snapshot{State: b.state, CleanupPending: b.cleanupPending}
+}
+
 func (b *restartBackend) Stop(context.Context) error {
 	b.stops++
 	if b.stopErr == nil {
 		b.state = session.Stopped
+		b.cleanupPending = false
 	}
 	return b.stopErr
+}
+
+func TestRestorationFailureCanBeRetriedFromTUI(t *testing.T) {
+	m, b := restartModel(t)
+	b.state, b.cleanupPending = session.Failed, true
+	if !m.running() {
+		t.Fatal("unrestored settings treated as an idle session")
+	}
+	_, cmd := m.Update(tea.KeyPressMsg{Code: 'c', Text: "c"})
+	if cmd != nil || !m.bad {
+		t.Fatal("reconnected while restoration was pending")
+	}
+	_, cmd = m.Update(tea.KeyPressMsg{Code: 's', Text: "s"})
+	runCommands(m, cmd)
+	if b.stops != 1 || b.starts != 0 || m.running() || m.bad {
+		t.Fatalf("restoration retry: stops=%d starts=%d notice=%s", b.stops, b.starts, m.notice)
+	}
 }
 
 func (b *restartBackend) Start(context.Context, engine.Options) error {

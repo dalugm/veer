@@ -484,8 +484,8 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) running() bool {
-	s := m.backend.Snapshot().State
-	return s != session.Stopped && s != session.Failed
+	s := m.backend.Snapshot()
+	return s.CleanupPending || (s.State != session.Stopped && s.State != session.Failed)
 }
 
 func (m *Model) refreshInfo() {
