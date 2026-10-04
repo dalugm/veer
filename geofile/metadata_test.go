@@ -1,7 +1,6 @@
 package geofile
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"fmt"
@@ -33,7 +32,7 @@ func TestInspectExistingFilesUsesModificationTime(t *testing.T) {
 
 func TestUpdateRecordsOnlyMatchingReleaseAndDetectsReplacement(t *testing.T) {
 	dir := t.TempDir()
-	body := bytes.Repeat([]byte("geo"), 1024)
+	body := validGeoFile("geosite.dat")
 	release := releaseInfo{Tag: "202609072354"}
 	// Use the actual release API decoder, including a mismatched CDN asset.
 	withHTTPClient(t, func(req *http.Request) (*http.Response, error) {
@@ -48,7 +47,7 @@ func TestUpdateRecordsOnlyMatchingReleaseAndDetectsReplacement(t *testing.T) {
 				),
 			), nil
 		}
-		return response(http.StatusOK, body), nil
+		return response(http.StatusOK, validGeoFile(filepath.Base(req.URL.Path))), nil
 	})
 	if err := Update(context.Background(), "cdn", dir); err != nil {
 		t.Fatal(err)
@@ -78,8 +77,8 @@ func TestMetadataFailurePreservesOldAssets(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(dir, metadataName), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	withHTTPClient(t, func(_ *http.Request) (*http.Response, error) {
-		return response(http.StatusOK, bytes.Repeat([]byte("new"), 1024)), nil
+	withHTTPClient(t, func(req *http.Request) (*http.Response, error) {
+		return response(http.StatusOK, validGeoFile(filepath.Base(req.URL.Path))), nil
 	})
 	if err := updateGeoFiles(
 		context.Background(),
@@ -102,7 +101,7 @@ func TestReleaseUnavailableStillDownloads(t *testing.T) {
 		if req.URL.Host == "api.github.com" {
 			return response(http.StatusForbidden, nil), nil
 		}
-		return response(http.StatusOK, bytes.Repeat([]byte("geo"), 1024)), nil
+		return response(http.StatusOK, validGeoFile(filepath.Base(req.URL.Path))), nil
 	})
 	if err := Update(context.Background(), "github", dir); err != nil {
 		t.Fatal(err)

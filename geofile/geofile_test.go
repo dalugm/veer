@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/dalugm/veer/engine"
+	"google.golang.org/protobuf/encoding/protowire"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -21,7 +23,7 @@ func TestUpdateGeoFilesPublishesCompleteSet(t *testing.T) {
 	destination := t.TempDir()
 	writeOldGeoFiles(t, destination)
 	withHTTPClient(t, func(request *http.Request) (*http.Response, error) {
-		body := bytes.Repeat([]byte(filepath.Base(request.URL.Path)), 256)
+		body := validGeoFile(filepath.Base(request.URL.Path))
 		return response(http.StatusOK, body), nil
 	})
 
@@ -34,7 +36,7 @@ func TestUpdateGeoFilesPublishesCompleteSet(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.HasPrefix(string(data), filename) {
+		if !bytes.Equal(data, validGeoFile(filename)) {
 			t.Fatalf("%s was not updated", filename)
 		}
 		info, err := os.Stat(filepath.Join(destination, filename))
@@ -54,7 +56,7 @@ func TestUpdateGeoFilesPreservesCompleteOldSetOnFailure(t *testing.T) {
 		if filepath.Base(request.URL.Path) == "geosite.dat" {
 			return response(http.StatusBadGateway, []byte("upstream failed")), nil
 		}
-		return response(http.StatusOK, bytes.Repeat([]byte("new-geoip"), 256)), nil
+		return response(http.StatusOK, validGeoFile("geoip.dat")), nil
 	})
 
 	urls := []string{"https://example.test/geoip.dat", "https://example.test/geosite.dat"}
@@ -104,5 +106,61 @@ func response(status int, body []byte) *http.Response {
 		Status:     http.StatusText(status),
 		Body:       io.NopCloser(bytes.NewReader(body)),
 		Header:     make(http.Header),
+	}
+}
+
+func validGeoFile(name string) []byte {
+	entry := protowire.AppendTag(nil, 1, protowire.BytesType)
+	entry = protowire.AppendString(entry, "TEST")
+	for range 120 {
+		var record []byte
+		if name == "geoip.dat" {
+			record = protowire.AppendTag(nil, 1, protowire.BytesType)
+			record = protowire.AppendBytes(record, []byte{192, 0, 2, 0})
+			record = protowire.AppendTag(record, 2, protowire.VarintType)
+			record = protowire.AppendVarint(record, 24)
+		} else {
+			record = protowire.AppendTag(nil, 1, protowire.VarintType)
+			record = protowire.AppendVarint(record, 2)
+			record = protowire.AppendTag(record, 2, protowire.BytesType)
+			record = protowire.AppendString(record, "example.test")
+		}
+		entry = protowire.AppendTag(entry, 2, protowire.BytesType)
+		entry = protowire.AppendBytes(entry, record)
+	}
+	return protowire.AppendBytes(protowire.AppendTag(nil, 1, protowire.BytesType), entry)
+}
+
+func TestUpdateRejectsInvalidDataWithoutReplacingOldFiles(t *testing.T) {
+	for _, invalid := range [][]byte{bytes.Repeat([]byte("<html>proxy error</html>"), 100), validGeoFile("geosite.dat")[:1024]} {
+		dir := t.TempDir()
+		writeOldGeoFiles(t, dir)
+		withHTTPClient(t, func(request *http.Request) (*http.Response, error) {
+			if filepath.Base(request.URL.Path) == "geosite.dat" {
+				return response(http.StatusOK, invalid), nil
+			}
+			return response(http.StatusOK, validGeoFile("geoip.dat")), nil
+		})
+		if err := updateGeoFiles(
+			t.Context(),
+			[]string{"https://example.test/geoip.dat", "https://example.test/geosite.dat"},
+			dir,
+		); err == nil {
+			t.Fatal("invalid data accepted")
+		}
+		for _, name := range []string{"geoip.dat", "geosite.dat"} {
+			data, err := os.ReadFile(filepath.Join(dir, name))
+			if err != nil || string(data) != "old-"+name {
+				t.Fatalf("old %s changed: %s %v", name, data, err)
+			}
+		}
+	}
+}
+
+func TestGeoFixturesMatchXrayFormat(t *testing.T) {
+	for _, name := range []string{"geosite.dat", "geoip.dat"} {
+		if err := engine.ValidateGeoData(t.Context(), name, validGeoFile(name)); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
