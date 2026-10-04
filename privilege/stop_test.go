@@ -152,7 +152,7 @@ func TestRemoteStopIgnoresLateReplyFromCancelledAttempt(t *testing.T) {
 							return
 						}
 						if err := enc.Encode(
-							helperUpdate{Snapshot: session.Snapshot{State: session.Running}},
+							helperUpdate{State: session.Running},
 						); err != nil {
 							helperDone <- err
 							return
@@ -170,11 +170,9 @@ func TestRemoteStopIgnoresLateReplyFromCancelledAttempt(t *testing.T) {
 						secondReceived <- second
 						<-allowOldReply
 						old := helperUpdate{
-							Snapshot: session.Snapshot{
-								State:          session.Failed,
-								CleanupPending: true,
-								Error:          "old rollback denied",
-							},
+							State:          session.Failed,
+							CleanupPending: true,
+							Error:          "old rollback denied",
 							StopResult: &helperStopResult{
 								ID:    first.ID,
 								Error: "old rollback denied",
@@ -185,7 +183,7 @@ func TestRemoteStopIgnoresLateReplyFromCancelledAttempt(t *testing.T) {
 							return
 						}
 						current := helperUpdate{
-							Snapshot:   session.Snapshot{State: session.Stopped},
+							State:      session.Stopped,
 							StopResult: &helperStopResult{ID: second.ID, Error: newError},
 						}
 						if newError != "" {
@@ -208,7 +206,7 @@ func TestRemoteStopIgnoresLateReplyFromCancelledAttempt(t *testing.T) {
 							cleanupReceived <- cleanup
 							if err := enc.Encode(
 								helperUpdate{
-									Snapshot:   session.Snapshot{State: session.Stopped},
+									State:      session.Stopped,
 									StopResult: &helperStopResult{ID: cleanup.ID},
 								},
 							); err != nil {

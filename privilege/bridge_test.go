@@ -266,7 +266,7 @@ func TestCancelledStartupReportsPendingCleanupWithoutWaitingForHelperExit(t *tes
 				return
 			}
 			if err := enc.Encode(
-				helperUpdate{Snapshot: session.Snapshot{State: session.Starting}},
+				helperUpdate{State: session.Starting},
 			); err != nil {
 				t.Error(err)
 				return
@@ -278,12 +278,10 @@ func TestCancelledStartupReportsPendingCleanupWithoutWaitingForHelperExit(t *tes
 				return
 			}
 			failure := helperUpdate{
-				Snapshot: session.Snapshot{
-					State:          session.Failed,
-					CleanupPending: true,
-					Error:          "restore denied",
-				},
-				StopResult: &helperStopResult{ID: stop.ID, Error: "restore denied"},
+				State:          session.Failed,
+				CleanupPending: true,
+				Error:          "restore denied",
+				StopResult:     &helperStopResult{ID: stop.ID, Error: "restore denied"},
 			}
 			if err := enc.Encode(failure); err != nil {
 				t.Error(err)
@@ -295,7 +293,7 @@ func TestCancelledStartupReportsPendingCleanupWithoutWaitingForHelperExit(t *tes
 			}
 			if err := enc.Encode(
 				helperUpdate{
-					Snapshot:   session.Snapshot{State: session.Stopped},
+					State:      session.Stopped,
 					StopResult: &helperStopResult{ID: stop.ID},
 				},
 			); err != nil {

@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/dalugm/veer/download"
 )
 
 const (
@@ -41,7 +43,7 @@ var (
 )
 
 func updateGeoFiles(ctx context.Context, urls []string, savePath string) error {
-	return updateGeoFilesWithMetadata(ctx, urls, savePath, "", releaseInfo{})
+	return updateGeoFilesWithMetadata(ctx, urls, savePath, "", releaseInfo{}, nil)
 }
 
 func updateGeoFilesWithMetadata(
@@ -49,6 +51,7 @@ func updateGeoFilesWithMetadata(
 	urls []string,
 	savePath, source string,
 	release releaseInfo,
+	report func(download.Progress),
 ) error {
 	destination := savePath
 	if destination == "" {
@@ -71,7 +74,7 @@ func updateGeoFilesWithMetadata(
 		return fmt.Errorf("secure staging directory: %w", err)
 	}
 
-	filenames, downloadErrors := downloadAll(ctx, urls, stageDir)
+	filenames, downloadErrors := downloadAll(ctx, urls, stageDir, report)
 	if len(downloadErrors) > 0 {
 		return errors.Join(downloadErrors...)
 	}
@@ -98,13 +101,15 @@ func updateGeoFilesWithMetadata(
 }
 
 // Update downloads and atomically publishes geoip.dat and geosite.dat.
-func Update(ctx context.Context, source, savePath string) error {
+// report optionally receives per-file download progress and must be safe for
+// concurrent calls from the two download workers.
+func Update(ctx context.Context, source, savePath string, report func(download.Progress)) error {
 	urls, ok := geoFileSources[source]
 	if !ok {
 		return fmt.Errorf("unknown source: %s (available: github, cdn, fastly)", source)
 	}
 	release := latestRelease(ctx)
-	if err := updateGeoFilesWithMetadata(ctx, urls, savePath, source, release); err != nil {
+	if err := updateGeoFilesWithMetadata(ctx, urls, savePath, source, release, report); err != nil {
 		return fmt.Errorf("geo file update failed: %w", err)
 	}
 	return nil

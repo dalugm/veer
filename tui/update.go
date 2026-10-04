@@ -7,13 +7,20 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/dalugm/veer/download"
 	update "github.com/dalugm/veer/engine/coreupdate"
 	"github.com/dalugm/veer/settings"
 )
 
 type releaseUpdater interface {
 	Check(context.Context, string, update.Channel) ([]update.Release, error)
-	Install(context.Context, string, string, update.Release) (update.Result, error)
+	Install(
+		context.Context,
+		string,
+		string,
+		update.Release,
+		func(download.Progress),
+	) (update.Result, error)
 	Restore(context.Context, string, string, string) (update.Result, error)
 }
 
@@ -193,6 +200,7 @@ func (m *Model) installUpdate() tea.Cmd {
 		return nil
 	}
 	ctx, cancel := m.begin("Downloading and verifying Xray…")
+	report := m.startDownload("Xray")
 	m.cancelUpdateCheck()
 	m.updates.seq++
 	client, current, binary, release := m.updates.client, m.updates.current, m.config.EnginePath, *m.selectedUpdate()
@@ -202,7 +210,7 @@ func (m *Model) installUpdate() tea.Cmd {
 		if err := ctx.Err(); err != nil {
 			return updateInstalledMsg{err: err}
 		}
-		result, err := client.Install(ctx, binary, current, release)
+		result, err := client.Install(ctx, binary, current, release, report)
 		return persistCoreUpdate(result, err, config, path)
 	})
 }
@@ -250,6 +258,7 @@ func (m *Model) restoreUpdate() tea.Cmd {
 }
 
 func (m *Model) updateInstalled(msg updateInstalledMsg) {
+	m.downloads = nil
 	m.busy, m.cancelWork, m.bad = false, nil, msg.err != nil
 	if msg.err != nil {
 		m.notice = "Update failed: " + msg.err.Error()

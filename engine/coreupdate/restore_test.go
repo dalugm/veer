@@ -10,7 +10,7 @@ import (
 
 func TestRestoreRetainsBothVersionsWithoutNetwork(t *testing.T) {
 	c, release, target := installFixture(t)
-	installed, err := c.Install(t.Context(), target, "v1.0.0", release)
+	installed, err := c.Install(t.Context(), target, "v1.0.0", release, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func TestRestoreFailurePreservesInstalledCore(t *testing.T) {
 	for _, kind := range []string{"missing", "invalid version", "cancelled", "different target"} {
 		t.Run(kind, func(t *testing.T) {
 			c, release, target := installFixture(t)
-			installed, err := c.Install(t.Context(), target, "v1.0.0", release)
+			installed, err := c.Install(t.Context(), target, "v1.0.0", release, nil)
 			if err != nil {
 				t.Fatal(err)
 			}

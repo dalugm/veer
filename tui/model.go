@@ -60,6 +60,7 @@ type Model struct {
 	profileFilter                    string
 	search                           *profileSearch
 	busyLabel                        string
+	downloads                        *downloadState
 	cancelWork                       context.CancelFunc
 	version                          string
 	runningVersion                   string
@@ -158,6 +159,7 @@ func (m *Model) begin(label string) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(m.ctx)
 	m.busy = true
 	m.busyLabel = label
+	m.downloads = nil
 	m.cancelWork = cancel
 	m.bad = false
 	m.notice = label

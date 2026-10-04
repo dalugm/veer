@@ -124,6 +124,7 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *Model) actionResult(msg actionMsg) tea.Cmd {
 	var refresh tea.Cmd
+	m.downloads = nil
 	m.busy = false
 	m.cancelWork = nil
 	m.bad = msg.err != nil

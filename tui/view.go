@@ -81,6 +81,9 @@ func (m *Model) View() tea.View {
 		noticeStyle = lipgloss.NewStyle().Foreground(rose)
 	}
 	notice := " " + noticeStyle.Render(clip(safe(m.notice), w-2))
+	if m.busy && m.downloads != nil {
+		notice = " " + m.downloadView(w-2)
+	}
 	footer := " c connect  r restart  s stop  y QR  i details  ? help  q quit"
 	if m.form != nil {
 		footer = " Tab next field   Ctrl+S submit   Esc cancel"

@@ -49,7 +49,7 @@ func TestUpdateRecordsOnlyMatchingReleaseAndDetectsReplacement(t *testing.T) {
 		}
 		return response(http.StatusOK, validGeoFile(filepath.Base(req.URL.Path))), nil
 	})
-	if err := Update(context.Background(), "cdn", dir); err != nil {
+	if err := Update(context.Background(), "cdn", dir, nil); err != nil {
 		t.Fatal(err)
 	}
 	items := Inspect(context.Background(), dir)
@@ -103,7 +103,7 @@ func TestReleaseUnavailableStillDownloads(t *testing.T) {
 		}
 		return response(http.StatusOK, validGeoFile(filepath.Base(req.URL.Path))), nil
 	})
-	if err := Update(context.Background(), "github", dir); err != nil {
+	if err := Update(context.Background(), "github", dir, nil); err != nil {
 		t.Fatal(err)
 	}
 	if item := Inspect(context.Background(), dir)[0]; item.Version != "" ||

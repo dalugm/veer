@@ -199,6 +199,11 @@ chosen destination.
 Veer manages client-side assets; server-user creation and
 server-config mutation are not exposed in the TUI.
 
+Geo and Xray downloads show a progress bar above the keyboard hints, with
+downloaded bytes and a percentage when the total size is known. Geo progress
+combines both files. Unknown sizes use an animated bar; after downloading,
+the status shows verification until the update finishes. **Esc** cancels.
+
 ## Xray core updates
 
 Veer checks [XTLS/Xray-core
@@ -282,3 +287,6 @@ elevation helper.
 client bundles. `serverconfig` owns server-user writes and backups; this
 backend API has no TUI entry point. Their Xray configuration transformations
 and validation belong to `engine`.
+
+`download` reports streaming byte progress. `geofile` and `engine/coreupdate`
+own their download and validation workflows; `tui` combines and renders progress.

@@ -8,6 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/dalugm/veer/download"
 	"github.com/dalugm/veer/engine"
 	update "github.com/dalugm/veer/engine/coreupdate"
 	"github.com/dalugm/veer/session"
@@ -62,6 +63,7 @@ func (f *fakeUpdater) Install(
 	_ context.Context,
 	binary, current string,
 	r update.Release,
+	_ func(download.Progress),
 ) (update.Result, error) {
 	f.installs++
 	if binary != "xray" || current != "v1.0.0" || r.Version != "v1.1.0" {

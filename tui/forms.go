@@ -8,6 +8,7 @@ import (
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"github.com/dalugm/veer/download"
 	"github.com/dalugm/veer/engine"
 	"github.com/dalugm/veer/geofile"
 	"github.com/dalugm/veer/settings"
@@ -193,7 +194,15 @@ func (m *Model) submitForm() tea.Cmd {
 	if f.kind == "geo" {
 		values[1] = geoSources[f.geoSource].value
 	}
-	ctx, cancel := m.begin("Saving…")
+	label := "Saving…"
+	if f.kind == "geo" {
+		label = "Downloading and verifying Geo assets…"
+	}
+	ctx, cancel := m.begin(label)
+	var report func(download.Progress)
+	if f.kind == "geo" {
+		report = m.startDownload("Geo")
+	}
 	c := m.config
 	c.Profiles = append([]settings.Profile(nil), c.Profiles...)
 	path := m.path
@@ -261,7 +270,7 @@ func (m *Model) submitForm() tea.Cmd {
 			if values[0] == "" {
 				return actionMsg{err: fmt.Errorf("choose a destination directory")}
 			}
-			err := geofile.Update(ctx, values[1], cleanPath(values[0]))
+			err := geofile.Update(ctx, values[1], cleanPath(values[0]), report)
 			return actionMsg{
 				err:       err,
 				notice:    "Geo assets updated.",

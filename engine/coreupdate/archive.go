@@ -12,6 +12,8 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"github.com/dalugm/veer/download"
 )
 
 func checksumFor(data []byte) ([]byte, error) {
@@ -59,6 +61,7 @@ func (c *Client) downloadArchive(
 	r Release,
 	path string,
 	want []byte,
+	report func(download.Progress),
 ) error {
 	resp, err := c.get(ctx, assetURL(r.tag, r.binary.Name))
 	if err != nil {
@@ -73,7 +76,10 @@ func (c *Client) downloadArchive(
 	hash := sha256.New()
 	n, err := io.Copy(
 		io.MultiWriter(f, hash),
-		io.LimitReader(contextReader{ctx, resp.Body}, r.binary.Size+1),
+		io.LimitReader(
+			download.Track(contextReader{ctx, resp.Body}, "Xray", r.binary.Size, report),
+			r.binary.Size+1,
+		),
 	)
 	if err != nil {
 		return fmt.Errorf("download Xray: %w", err)

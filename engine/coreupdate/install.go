@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/dalugm/veer/download"
 	"golang.org/x/mod/semver"
 )
 
@@ -22,10 +23,12 @@ type Result struct {
 // Install downloads, verifies and replaces the executable. The caller must
 // obtain explicit user confirmation and serialize installations. Cancellation
 // is honored until the final rename transaction; rollback must finish once begun.
+// report optionally receives archive download progress in the calling goroutine.
 func (c *Client) Install(
 	ctx context.Context,
 	binary, current string,
 	release Release,
+	report func(download.Progress),
 ) (Result, error) {
 	if err := ctx.Err(); err != nil {
 		return Result{}, err
@@ -97,7 +100,7 @@ func (c *Client) Install(
 	if err != nil {
 		return Result{}, err
 	}
-	if err := c.downloadArchive(ctx, release, archive, want); err != nil {
+	if err := c.downloadArchive(ctx, release, archive, want, report); err != nil {
 		return Result{}, err
 	}
 	if err := c.extractBinary(ctx, archive, staged, before.Mode().Perm()); err != nil {

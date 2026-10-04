@@ -64,7 +64,7 @@ func assertContents(t *testing.T, path, want string) {
 
 func TestInstallVerifiedBinaryPreservesMode(t *testing.T) {
 	c, r, target := installFixture(t)
-	result, err := c.Install(t.Context(), target, "v1.0.0", r)
+	result, err := c.Install(t.Context(), target, "v1.0.0", r, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func TestInstallPreservesRunningProcess(t *testing.T) {
 		}
 	}
 	ping("before update")
-	if _, err := c.Install(ctx, target, "v1.0.0", release); err != nil {
+	if _, err := c.Install(ctx, target, "v1.0.0", release, nil); err != nil {
 		t.Fatal(err)
 	}
 	assertContents(t, target, "new executable")
@@ -201,7 +201,7 @@ func TestInstallFailuresPreserveExistingBinary(t *testing.T) {
 			if kind == "invalid release" {
 				r.tag = "../../other"
 			}
-			if _, err := c.Install(ctx, target, current, r); err == nil {
+			if _, err := c.Install(ctx, target, current, r, nil); err == nil {
 				t.Fatal("failed install reported success")
 			}
 			if kind == "changed target" {
@@ -231,7 +231,7 @@ func TestInstallRejectsCancelledWorkBeforeDiskOrNetwork(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if _, err := c.Install(ctx, target, "v1.0.0", r); !errors.Is(err, context.Canceled) {
+	if _, err := c.Install(ctx, target, "v1.0.0", r, nil); !errors.Is(err, context.Canceled) {
 		t.Fatal(err)
 	}
 	assertContents(t, target, "old executable")
@@ -247,7 +247,7 @@ func TestInstallFollowsLocalExecutableSymlink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := c.Install(t.Context(), link, "v1.0.0", r); err != nil {
+	if _, err := c.Install(t.Context(), link, "v1.0.0", r, nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Readlink(link); err != nil {
@@ -332,7 +332,7 @@ func TestChecksumResponseLimit(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader(strings.Repeat("x", maxChecksumsSize+1))),
 		}, nil
 	})
-	if _, err := c.Install(t.Context(), target, "v1.0.0", r); err == nil {
+	if _, err := c.Install(t.Context(), target, "v1.0.0", r, nil); err == nil {
 		t.Fatal("oversized checksums accepted")
 	}
 	assertContents(t, target, "old executable")
@@ -415,7 +415,7 @@ func TestInstallRejectsUnsafeArchiveOrWrongCore(t *testing.T) {
 				}
 				return response(200, string(data)), nil
 			})
-			if _, err := c.Install(t.Context(), target, "v1.0.0", r); err == nil {
+			if _, err := c.Install(t.Context(), target, "v1.0.0", r, nil); err == nil {
 				t.Fatal("invalid archive/core installed")
 			}
 			assertContents(t, target, "old executable")

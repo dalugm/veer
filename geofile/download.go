@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/dalugm/veer/download"
 	"github.com/dalugm/veer/engine"
 )
 
@@ -29,7 +30,11 @@ func extractFilenameFromURL(rawURL string) (string, error) {
 	return filename, nil
 }
 
-func downloadFile(ctx context.Context, urlStr, fullPath string) error {
+func downloadFile(
+	ctx context.Context,
+	urlStr, fullPath string,
+	report func(download.Progress),
+) error {
 	tmpFile, err := os.CreateTemp(filepath.Dir(fullPath), "."+filepath.Base(fullPath)+".tmp-*")
 	if err != nil {
 		return fmt.Errorf("create temp file: %w", err)
@@ -56,7 +61,8 @@ func downloadFile(ctx context.Context, urlStr, fullPath string) error {
 		return fmt.Errorf("http status: %s", resp.Status)
 	}
 
-	written, err := io.Copy(tmpFile, io.LimitReader(resp.Body, maxGeoFileSize+1))
+	body := download.Track(resp.Body, filepath.Base(fullPath), resp.ContentLength, report)
+	written, err := io.Copy(tmpFile, io.LimitReader(body, maxGeoFileSize+1))
 	if err != nil {
 		_ = tmpFile.Close()
 		return fmt.Errorf("save content: %w", err)
@@ -92,7 +98,12 @@ func downloadFile(ctx context.Context, urlStr, fullPath string) error {
 	return nil
 }
 
-func downloadAll(ctx context.Context, urls []string, stageDir string) ([]string, []error) {
+func downloadAll(
+	ctx context.Context,
+	urls []string,
+	stageDir string,
+	report func(download.Progress),
+) ([]string, []error) {
 	filenames := make([]string, len(urls))
 	results := make([]error, len(urls))
 	seen := make(map[string]struct{}, len(urls))
@@ -108,6 +119,9 @@ func downloadAll(ctx context.Context, urls []string, stageDir string) ([]string,
 		}
 		seen[filename] = struct{}{}
 		filenames[i] = filename
+		if report != nil {
+			report(download.Progress{Name: filename})
+		}
 	}
 
 	var wg sync.WaitGroup
@@ -118,7 +132,12 @@ func downloadAll(ctx context.Context, urls []string, stageDir string) ([]string,
 		wg.Add(1)
 		go func(index int, urlStr, filename string) {
 			defer wg.Done()
-			if err := downloadFile(ctx, urlStr, filepath.Join(stageDir, filename)); err != nil {
+			if err := downloadFile(
+				ctx,
+				urlStr,
+				filepath.Join(stageDir, filename),
+				report,
+			); err != nil {
 				results[index] = fmt.Errorf("%s: %w", urlStr, err)
 			}
 		}(i, rawURL, filenames[i])
