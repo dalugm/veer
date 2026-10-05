@@ -36,9 +36,11 @@ Terminal is recommended on Windows.
 5. Press **3** to inspect logs, **s** to disconnect, and **q** to
    quit.
 
-Profiles reference existing files. Veer does not install Xray
+Profiles list each configuration's name, engine and file path,
+referencing existing local files. Veer does not install Xray
 automatically or provide a built-in JSON editor or
-subscription/share-link import.
+subscription/share-link import. URL subscription import and refresh
+are not supported.
 
 ## Pages and keyboard controls
 

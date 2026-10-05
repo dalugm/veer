@@ -8,6 +8,7 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 type profileSearch struct {
@@ -95,8 +96,21 @@ func (m *Model) profileBody(w, h int) string {
 		}
 		return strings.Join(append(lines, "", clip(text, w)), "\n")
 	}
-	nameWidth := max(8, w-14)
-	lines = append(lines, faint.Render(spread("  NAME", "ENGINE", w)))
+	nameWidth := min(24, max(8, w/3))
+	engineWidth := 8
+	pathWidth := max(1, w-nameWidth-engineWidth-4)
+	nameColumn := lipgloss.NewStyle().Width(nameWidth)
+	engineColumn := lipgloss.NewStyle().Width(engineWidth)
+	columns := func(name, engine, path string) string {
+		path = safe(path)
+		if overflow := ansi.StringWidth(path) - pathWidth; overflow > 0 {
+			path = ansi.TruncateLeft(path, overflow+1, "…")
+		}
+		return nameColumn.Render(clip(safe(name), nameWidth)) + "  " +
+			engineColumn.Render(clip(safe(engine), engineWidth)) + "  " +
+			path
+	}
+	lines = append(lines, faint.Render(columns("  NAME", "ENGINE", "PATH")))
 	rows := max(1, h-5)
 	position := max(0, slices.Index(indices, m.cursor))
 	start := max(0, position-rows+1)
@@ -106,7 +120,7 @@ func (m *Model) profileBody(w, h int) string {
 		if p.ID == m.config.Selected {
 			mark = "●"
 		}
-		label := spread(mark+" "+clip(safe(p.Name), nameWidth), safe(p.Engine), w)
+		label := columns(mark+" "+p.Name, p.Engine, p.Path)
 		if i == m.cursor {
 			label = lipgloss.NewStyle().
 				Background(lipgloss.Color("#253550")).
@@ -127,7 +141,7 @@ func (m *Model) profileBody(w, h int) string {
 			state = "Selected"
 		}
 		lines = append(lines, faint.Render(strings.Repeat("─", w)),
-			spread(strong.Render(clip(safe(p.Name), nameWidth)), faint.Render(state), w),
+			spread(strong.Render(clip(safe(p.Name), max(8, w-14))), faint.Render(state), w),
 			faint.Render(clip(safe(p.Path), w)))
 	}
 	return strings.Join(lines, "\n")
