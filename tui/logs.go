@@ -24,6 +24,12 @@ const logPrefixWidth = 32
 func parseLog(raw string) logEntry {
 	entry := logEntry{time: "—", level: "—", source: "—"}
 	text := safe(raw)
+	for _, source := range []string{"access", "error", "access/error"} {
+		if rest, ok := strings.CutPrefix(text, "["+source+"] "); ok {
+			entry.source, text = source, rest
+			break
+		}
+	}
 	if match := logTime.FindStringSubmatch(text); match != nil {
 		entry.time = match[1]
 		text = text[len(match[0]):]
@@ -36,8 +42,10 @@ func parseLog(raw string) logEntry {
 		text = text[len(match[0]):]
 	}
 	if match := logSource.FindStringSubmatch(text); match != nil {
-		entry.source = match[2]
-		text = match[1] + text[len(match[0]):]
+		if entry.source == "—" {
+			entry.source = match[2]
+			text = match[1] + text[len(match[0]):]
+		}
 	}
 	entry.message = text
 	return entry

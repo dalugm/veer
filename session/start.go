@@ -103,7 +103,13 @@ func (c *Controller) Start(parent context.Context, o engine.Options) error {
 	output := &logWriter{controller: c}
 	cmd.Stdout = output
 	cmd.Stderr = output
+	logFiles := c.prepareLogFiles(ctx, plan.Info.LogFiles)
+	if err = ctx.Err(); err != nil {
+		closeLogFiles(logFiles)
+		return fail(err)
+	}
 	if err = cmd.Start(); err != nil {
+		closeLogFiles(logFiles)
 		return fail(fmt.Errorf("start Xray: %w", err))
 	}
 	c.mu.Lock()
@@ -115,13 +121,19 @@ func (c *Controller) Start(parent context.Context, o engine.Options) error {
 	c.Log(fmt.Sprintf("Xray started · PID %d", cmd.Process.Pid))
 	samplesDone := make(chan struct{})
 	go func() { defer close(samplesDone); c.pollTraffic(ctx, plan) }()
+	logsDone := make(chan struct{})
+	// Keep following through the child's shutdown, including its final writes.
+	logCtx, stopLogs := context.WithCancel(context.WithoutCancel(ctx))
+	go func() { defer close(logsDone); followLogFiles(logCtx, logFiles) }()
 	go func() {
 		err := cmd.Wait()
+		stopLogs()
 		// Cancel polling/readiness before cleanup. The Wait result still determines
 		// whether an unsolicited engine exit is a failure.
 		unexpected := ctx.Err() == nil
 		cancel()
 		<-samplesDone
+		<-logsDone
 		output.Flush()
 		err = errors.Join(err, cleanup())
 		finishCtx := ctx

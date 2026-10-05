@@ -4,6 +4,7 @@ package session
 import (
 	"context"
 	"errors"
+	"os"
 	"runtime"
 	"sync"
 	"time"
@@ -48,6 +49,7 @@ type Adapter interface {
 
 // Controller owns one core process and its cleanup operations.
 type Controller struct {
+	grantLogRead  func(context.Context, *os.File) error
 	platform      string
 	cleanupErr    error
 	cleanup       func(context.Context) error
@@ -64,8 +66,8 @@ type Controller struct {
 }
 
 // New creates an idle controller using the given core adapter.
-func New(a Adapter) *Controller {
-	return &Controller{
+func New(a Adapter, options ...Option) *Controller {
+	c := &Controller{
 		platform:      runtime.GOOS,
 		prepareDNS:    network.PrepareDNS,
 		prepareProxy:  network.PrepareProxy,
@@ -74,6 +76,19 @@ func New(a Adapter) *Controller {
 		adapter:       a,
 		snapshot:      Snapshot{State: Stopped},
 	}
+	for _, option := range options {
+		option(c)
+	}
+	return c
+}
+
+// Option configures an optional OS boundary before a controller starts.
+type Option func(*Controller)
+
+// WithLogAccess grants the originating account read access when a log is opened.
+// It runs outside the terminal loop, including when log files are rotated.
+func WithLogAccess(grant func(context.Context, *os.File) error) Option {
+	return func(c *Controller) { c.grantLogRead = grant }
 }
 
 // Snapshot returns a copy of the current state and logs.

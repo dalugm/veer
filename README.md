@@ -48,7 +48,7 @@ are not supported.
 |----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **1 Overview** | Connection status beside the selected profile, core version, traffic chart, mode, DNS and listeners. **i** opens process and path details.                                                      |
 | **2 Profiles** | **/** filters names, engines and paths. **Enter** selects; **a** adds, **e** edits the name or config path, **d** removes a profile entry. **c** connects and **y** shares the focused profile. |
-| **3 Logs**     | Colored severity levels, timestamps, sources and wrapped messages. **G** resumes following the latest output.                                                                                   |
+| **3 Logs**     | Console output and newly appended file logs, with severity, timestamps and sources. **G** follows the latest output. |
 | **4 Tools**    | Geosite and GeoIP versions or file timestamps. **g** opens the Geo asset updater; **u** opens the Xray core updater.                                                                            |
 | **5 Settings** | **e** edits the core path, Geo directory and DNS preferences. **v** checks the core version.                                                                                                    |
 
@@ -69,6 +69,22 @@ In profile search, **Enter** keeps the filter, **Ctrl+U** clears the
 input, and **Esc** cancels editing. Outside search, **Esc** clears the
 applied filter. Profile actions use the focused visible row;
 connecting uses the selected profile.
+
+### Log files and read access
+
+Xray continues writing the configured `log.access` and `log.error` files.
+Veer follows new entries from connection startup into Logs, including file
+rotation and final shutdown output. Existing file history is not loaded;
+the view retains up to 400 recent entries.
+Relative log paths resolve against the original configuration's directory.
+
+For elevated sessions, the helper grants the account that started Veer
+read access to log files in directories owned by that account. macOS and
+Linux use a per-user file ACL; Windows uses a file DACL. Ownership is
+preserved and logs are not made readable by every user. Linux requires
+`setfacl` from the `acl` package. Access failures appear as warnings in
+Logs; file monitoring continues through the helper. Reconnect after
+upgrading Veer to activate monitoring and access grants for a running session.
 
 ### Forms and path completion
 

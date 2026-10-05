@@ -7,11 +7,17 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
+	"os"
 	"time"
 
 	"github.com/dalugm/veer/engine"
 	"github.com/dalugm/veer/session"
 )
+
+type helperOptions struct {
+	engine.Options
+	LogReader string
+}
 
 func authenticate(conn net.Conn, token string) (*bufio.Reader, error) {
 	if err := conn.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
@@ -56,14 +62,23 @@ func Serve(parent context.Context, address, token string) (result error) {
 		return err
 	}
 	dec := json.NewDecoder(conn)
-	var options engine.Options
+	var options helperOptions
 	if err = dec.Decode(&options); err != nil {
 		return err
 	}
 	if err := conn.SetReadDeadline(time.Time{}); err != nil {
 		return err
 	}
-	return serveController(parent, conn, dec, session.New(engine.Xray{}), options)
+	if err := validateLogReader(options.LogReader); err != nil {
+		return err
+	}
+	controller := session.New(
+		engine.Xray{},
+		session.WithLogAccess(func(ctx context.Context, file *os.File) error {
+			return grantLogRead(ctx, file, options.LogReader)
+		}),
+	)
+	return serveController(parent, conn, dec, controller, options.Options)
 }
 
 // helperUpdate keeps the session snapshot and the acknowledgement for one stop

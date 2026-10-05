@@ -91,6 +91,10 @@ func (r *remote) Start(parent context.Context, o engine.Options) error {
 }
 
 func (r *remote) communicate(ctx context.Context, o engine.Options, ready chan<- error) error {
+	logReader, err := currentLogReader()
+	if err != nil {
+		return fmt.Errorf("identify log reader: %w", err)
+	}
 	var tokenBytes [32]byte
 	if _, err := rand.Read(tokenBytes[:]); err != nil {
 		return err
@@ -171,7 +175,8 @@ func (r *remote) communicate(ctx context.Context, o engine.Options, ready chan<-
 	r.mu.Lock()
 	r.conn = conn
 	r.mu.Unlock()
-	if err = json.NewEncoder(conn).Encode(o); err != nil {
+	if err = json.NewEncoder(conn).
+		Encode(helperOptions{Options: o, LogReader: logReader}); err != nil {
 		return err
 	}
 	after := context.AfterFunc(ctx, func() {

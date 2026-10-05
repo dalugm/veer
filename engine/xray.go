@@ -29,6 +29,7 @@ type Info struct {
 	Endpoints     []string
 	Protocols     []string
 	ProxyEndpoint string
+	LogFiles      []LogFile
 }
 
 // Plan contains the commands and environment needed to validate and start a core.
@@ -94,6 +95,10 @@ func Inspect(path string) (Info, error) {
 		return Info{}, errors.New("config exceeds 8 MiB")
 	}
 	var doc struct {
+		Log struct {
+			Access string `json:"access"`
+			Error  string `json:"error"`
+		} `json:"log"`
 		Inbounds []struct {
 			Protocol string `json:"protocol"`
 			Settings struct {
@@ -114,6 +119,11 @@ func Inspect(path string) (Info, error) {
 		return Info{}, errors.New("Xray config needs inbounds and outbounds")
 	}
 	info := Info{}
+	configPath, err := filepath.Abs(path)
+	if err != nil {
+		return Info{}, err
+	}
+	info.LogFiles = logFiles(filepath.Dir(configPath), doc.Log.Access, doc.Log.Error)
 	proxyMixed := false
 	for _, in := range doc.Inbounds {
 		if in.Protocol == "tun" {
