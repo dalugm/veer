@@ -35,6 +35,9 @@ type Snapshot struct {
 	Since          time.Time
 	Error          string
 	Logs           []string
+	LogArchive     string
+	LogCount       uint64
+	LogError       string
 	Ready          bool
 	Endpoints      []string
 	Traffic        engine.Traffic
@@ -50,6 +53,8 @@ type Adapter interface {
 // Controller owns one core process and its cleanup operations.
 type Controller struct {
 	grantLogRead  func(context.Context, *os.File) error
+	archive       *os.File
+	archiveMu     sync.Mutex
 	platform      string
 	cleanupErr    error
 	cleanup       func(context.Context) error
@@ -89,6 +94,17 @@ type Option func(*Controller)
 // It runs outside the terminal loop, including when log files are rotated.
 func WithLogAccess(grant func(context.Context, *os.File) error) Option {
 	return func(c *Controller) { c.grantLogRead = grant }
+}
+
+// WithLogArchive records the session's sanitized entries to a caller-owned file.
+// The caller closes it after Stop completes, retaining it for disconnected search.
+func WithLogArchive(file *os.File) Option {
+	return func(c *Controller) {
+		c.archive = file
+		if file != nil {
+			c.snapshot.LogArchive = file.Name()
+		}
+	}
 }
 
 // Snapshot returns a copy of the current state and logs.

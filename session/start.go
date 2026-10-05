@@ -30,6 +30,9 @@ func (c *Controller) Start(parent context.Context, o engine.Options) error {
 	done := c.done
 	c.snapshot.State = Validating
 	c.snapshot.Error = ""
+	c.snapshot.Logs = nil
+	c.snapshot.LogCount = 0
+	c.snapshot.LogError = ""
 	c.cleanupErr = nil
 	c.snapshot.Ready = false
 	c.snapshot.PID = 0
@@ -62,6 +65,14 @@ func (c *Controller) Start(parent context.Context, o engine.Options) error {
 		c.finish(ctx, err, done)
 		cancel()
 		return err
+	}
+	if c.archive != nil {
+		if err := c.archive.Truncate(0); err != nil {
+			return fail(fmt.Errorf("reset session log archive: %w", err))
+		}
+		if _, err := c.archive.Seek(0, 0); err != nil {
+			return fail(fmt.Errorf("reset session log archive: %w", err))
+		}
 	}
 	plan, err := c.adapter.Prepare(o)
 	if err != nil {

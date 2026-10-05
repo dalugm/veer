@@ -48,7 +48,7 @@ are not supported.
 |----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **1 Overview** | Connection status beside the selected profile, core version, traffic chart, mode, DNS and listeners. **i** opens process and path details.                                                      |
 | **2 Profiles** | **/** filters names, engines and paths. **Enter** selects; **a** adds, **e** edits the name or config path, **d** removes a profile entry. **c** connects and **y** shares the focused profile. |
-| **3 Logs**     | Console output and newly appended file logs, with severity, timestamps and sources. **G** follows the latest output. |
+| **3 Logs**     | Console output and newly appended file logs, with severity, timestamps and sources. **/** searches the current session; **G** follows the latest output.                                        |
 | **4 Tools**    | Geosite and GeoIP versions or file timestamps. **g** opens the Geo asset updater; **u** opens the Xray core updater.                                                                            |
 | **5 Settings** | **e** edits the core path, Geo directory and DNS preferences. **v** checks the core version.                                                                                                    |
 
@@ -65,17 +65,23 @@ Outside forms and search:
 | **?**                                 | Contextual keyboard help                               |
 | **q**, **Ctrl+C**                     | Quit; an active connection may prompt for confirmation |
 
-In profile search, **Enter** keeps the filter, **Ctrl+U** clears the
-input, and **Esc** cancels editing. Outside search, **Esc** clears the
-applied filter. Profile actions use the focused visible row;
-connecting uses the selected profile.
+In Profiles and Logs search, **Enter** keeps the filter, **Ctrl+U**
+clears the input, and **Esc** cancels editing. Outside search, **Esc**
+clears the applied filter. Profile actions use the focused visible
+row; connecting uses the selected profile.
 
 ### Log files and read access
 
 Xray continues writing the configured `log.access` and `log.error` files.
 Veer follows new entries from connection startup into Logs, including file
-rotation and final shutdown output. Existing file history is not loaded;
-the view retains up to 400 recent entries.
+rotation and final shutdown output. Existing file history is not loaded.
+Each connection clears the previous session's entries; disconnecting preserves
+the last session for inspection. The live view retains up to 400 recent entries.
+Search covers all entries captured during the current connection, including
+entries older than the live window. Results load in pages as you scroll;
+**gg/Home** and **G/End** jump to the first and most recent matches.
+Veer keeps the complete sanitized session log in a private temporary file,
+removing it on reconnect or application exit. Xray's original log files remain.
 Relative log paths resolve against the original configuration's directory.
 
 For elevated sessions, the helper grants the account that started Veer

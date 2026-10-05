@@ -18,6 +18,7 @@ import (
 )
 
 type remote struct {
+	archive     string
 	writeMu     sync.Mutex
 	stopReplies map[uint64]chan error
 	nextStopID  uint64
@@ -33,6 +34,7 @@ func (r *remote) Snapshot() session.Snapshot {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	s := r.snapshot
+	s.LogArchive = r.archive
 	s.Logs = append([]string(nil), s.Logs...)
 	return s
 }
@@ -176,7 +178,7 @@ func (r *remote) communicate(ctx context.Context, o engine.Options, ready chan<-
 	r.conn = conn
 	r.mu.Unlock()
 	if err = json.NewEncoder(conn).
-		Encode(helperOptions{Options: o, LogReader: logReader}); err != nil {
+		Encode(helperOptions{Options: o, LogReader: logReader, LogArchive: r.archive}); err != nil {
 		return err
 	}
 	after := context.AfterFunc(ctx, func() {

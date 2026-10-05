@@ -55,6 +55,8 @@ func (m *Model) connect() tea.Cmd {
 }
 
 func (m *Model) runStart(o engine.Options) tea.Cmd {
+	m.logOffset = 0
+	m.clearArchiveSearch()
 	ctx, cancel := m.begin("Starting Xray…")
 	read := m.updates.readVersion
 	return m.workers.track(func() tea.Msg {

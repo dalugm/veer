@@ -124,3 +124,26 @@ func grantLogRead(ctx context.Context, file *os.File, reader string) error {
 		nil,
 	)
 }
+
+func validateArchiveOwner(file *os.File, reader string) error {
+	sid, err := windows.StringToSid(reader)
+	if err != nil {
+		return err
+	}
+	sd, err := windows.GetSecurityInfo(
+		windows.Handle(file.Fd()),
+		windows.SE_FILE_OBJECT,
+		windows.OWNER_SECURITY_INFORMATION,
+	)
+	if err != nil {
+		return err
+	}
+	owner, _, err := sd.Owner()
+	if err != nil {
+		return err
+	}
+	if !windows.EqualSid(owner, sid) {
+		return errors.New("session archive must be owned by the originating user")
+	}
+	return nil
+}

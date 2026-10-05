@@ -69,7 +69,7 @@ func TestNarrowFooterOnlyShowsHelp(t *testing.T) {
 		t.Fatalf("form footer leaked on narrow screen:\n%s", view)
 	}
 	m.form = nil
-	m.search = &profileSearch{}
+	m.search = &listSearch{}
 	view := ansi.Strip(m.View().Content)
 	if !strings.Contains(view, "? help") || strings.Contains(view, "apply search") {
 		t.Fatalf("search footer leaked on narrow screen:\n%s", view)

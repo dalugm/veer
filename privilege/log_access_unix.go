@@ -105,3 +105,19 @@ func setUnixLogRead(
 		return errors.New("automatic log read access is unsupported on this platform")
 	}
 }
+
+func validateArchiveOwner(file *os.File, reader string) error {
+	uid, err := strconv.ParseUint(reader, 10, 32)
+	if err != nil {
+		return err
+	}
+	info, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || uint64(stat.Uid) != uid || info.Mode().Perm()&0o077 != 0 {
+		return errors.New("session archive must be private and owned by the originating user")
+	}
+	return nil
+}

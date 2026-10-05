@@ -68,3 +68,34 @@ func TestControllerFollowsFileThroughChildShutdown(t *testing.T) {
 		t.Fatalf("original file not preserved: %q %v", data, err)
 	}
 }
+
+func TestReconnectStartsNewLogSession(t *testing.T) {
+	c := New(fakeEngine{"run"})
+	if err := c.Start(t.Context(), engine.Options{}); err != nil {
+		t.Fatal(err)
+	}
+	c.Log("previous-session-marker")
+	if err := c.Start(t.Context(), engine.Options{}); err == nil {
+		t.Fatal("duplicate start accepted")
+	}
+	if !strings.Contains(strings.Join(c.Snapshot().Logs, "\n"), "previous-session-marker") {
+		t.Fatal("rejected start cleared active logs")
+	}
+	if err := c.Stop(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(c.Snapshot().Logs, "\n"), "previous-session-marker") {
+		t.Fatal("stop cleared diagnostic logs")
+	}
+	if err := c.Start(t.Context(), engine.Options{}); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := c.Stop(t.Context()); err != nil {
+			t.Error(err)
+		}
+	}()
+	if strings.Contains(strings.Join(c.Snapshot().Logs, "\n"), "previous-session-marker") {
+		t.Fatal("reconnect retained previous session")
+	}
+}

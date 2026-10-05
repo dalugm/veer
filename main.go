@@ -13,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/term"
 	"github.com/dalugm/veer/privilege"
+	"github.com/dalugm/veer/session"
 	"github.com/dalugm/veer/settings"
 	"github.com/dalugm/veer/tui"
 )
@@ -45,6 +46,10 @@ func run() (result error) {
 		ctx, stop := context.WithTimeout(context.Background(), 15*time.Second)
 		defer stop()
 		result = errors.Join(result, backend.Stop(ctx))
+		s := backend.Snapshot()
+		if !s.CleanupPending && (s.State == session.Stopped || s.State == session.Failed) {
+			result = errors.Join(result, backend.Close())
+		}
 	}()
 	model, err := tui.New(ctx, path, backend)
 	if err != nil {

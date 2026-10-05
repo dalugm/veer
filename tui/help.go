@@ -22,7 +22,8 @@ func (m *Model) helpView(w, h int) string {
 			"a add · e edit · d remove · y QR · i details",
 			"c connect selected profile · s stop")
 	case Logs:
-		lines = append(lines, "c connect · s stop · a add profile",
+		lines = append(lines, "/ search · Enter apply · Esc clear search",
+			"c connect · s stop · a add profile",
 			"Log messages wrap inside the message column.",
 			"G resumes following the latest output.")
 	case Tools:

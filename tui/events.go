@@ -18,6 +18,9 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := message.(type) {
+	case archiveSearchMsg:
+		m.archiveSearchResult(msg)
+		return m, nil
 	case updateCheckedMsg:
 		m.updateChecked(msg)
 		return m, nil
@@ -87,7 +90,7 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.phase++
 		m.snapshot = m.backend.Snapshot()
 		m.observeTraffic(time.Time(msg))
-		return m, tick()
+		return m, tea.Batch(tick(), m.refreshArchiveSearch())
 	case actionMsg:
 		return m, m.actionResult(msg)
 	case sessionMsg:

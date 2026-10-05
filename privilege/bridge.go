@@ -4,6 +4,7 @@ package privilege
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -23,6 +24,7 @@ type Manager struct {
 	mu       sync.Mutex
 	current  Backend
 	starting bool
+	archive  *os.File
 }
 
 // New creates a manager with an idle local Xray session.
@@ -32,8 +34,14 @@ func New() *Manager { return &Manager{current: session.New(engine.Xray{})} }
 func (m *Manager) Snapshot() session.Snapshot {
 	m.mu.Lock()
 	b := m.current
+	archive := m.archive
 	m.mu.Unlock()
-	return b.Snapshot()
+	s := b.Snapshot()
+	s.LogArchive = ""
+	if archive != nil {
+		s.LogArchive = archive.Name()
+	}
+	return s
 }
 
 // Stop stops the current session and waits for cleanup.
@@ -70,7 +78,7 @@ func (m *Manager) Start(ctx context.Context, o engine.Options) error {
 	if err != nil {
 		return err
 	}
-	var b Backend = session.New(engine.Xray{})
+	var b Backend
 	if elevated {
 		plan, err := (engine.Xray{}).Prepare(o)
 		if err != nil {
@@ -87,7 +95,58 @@ func (m *Manager) Start(ctx context.Context, o engine.Options) error {
 		b = &remote{snapshot: session.Snapshot{State: session.Stopped}}
 	}
 	m.mu.Lock()
+	old := m.archive
+	m.mu.Unlock()
+	if old != nil {
+		if err := removeSessionArchive(old); err != nil {
+			return err
+		}
+		m.mu.Lock()
+		m.archive = nil
+		m.mu.Unlock()
+	}
+	archive, err := os.CreateTemp("", "veer-session-*.log")
+	if err != nil {
+		return err
+	}
+	if elevated {
+		b.(*remote).archive = archive.Name()
+	} else {
+		b = session.New(engine.Xray{}, session.WithLogArchive(archive))
+	}
+	m.mu.Lock()
+	m.archive = archive
 	m.current = b
 	m.mu.Unlock()
 	return b.Start(ctx, o)
+}
+
+// Close removes the temporary session archive after the process has stopped.
+func (m *Manager) Close() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.archive == nil {
+		return nil
+	}
+	s := m.current.Snapshot()
+	if m.starting || (s.State != session.Stopped && s.State != session.Failed) || s.CleanupPending {
+		return errors.New("stop the session before closing its log archive")
+	}
+	if err := removeSessionArchive(m.archive); err != nil {
+		return err
+	}
+	m.archive = nil
+	return nil
+}
+
+func removeSessionArchive(file *os.File) error {
+	closeErr := file.Close()
+	if errors.Is(closeErr, os.ErrClosed) {
+		closeErr = nil
+	}
+	removeErr := os.Remove(file.Name())
+	if errors.Is(removeErr, os.ErrNotExist) {
+		removeErr = nil
+	}
+	return errors.Join(closeErr, removeErr)
 }

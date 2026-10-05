@@ -72,6 +72,9 @@ func (m *Model) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 }
 
 func (m *Model) pageKey(key string) tea.Cmd {
+	if handled, cmd := m.navigateArchivedLogs(key); handled {
+		return cmd
+	}
 	previousPage := m.page
 	if m.navigate(key) {
 		if m.page == Tools && previousPage != Tools {
@@ -88,9 +91,13 @@ func (m *Model) pageKey(key string) tea.Cmd {
 	case "/":
 		return m.startSearch()
 	case "esc":
-		if m.page == Profiles {
+		switch m.page {
+		case Profiles:
 			m.profileFilter = ""
 			m.ensureProfileCursor()
+		case Logs:
+			m.logFilter, m.logOffset = "", 0
+			m.clearArchiveSearch()
 		}
 	case "y":
 		return m.openQR()

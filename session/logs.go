@@ -24,11 +24,24 @@ func (c *Controller) Log(s string) {
 		return
 	}
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	c.snapshot.Logs = append(c.snapshot.Logs, s)
 	if len(c.snapshot.Logs) > 400 {
 		c.snapshot.Logs = append([]string(nil), c.snapshot.Logs[len(c.snapshot.Logs)-400:]...)
 	}
+	c.mu.Unlock()
+	if c.archive != nil {
+		c.archiveMu.Lock()
+		_, err := c.archive.WriteString(s + "\n")
+		c.archiveMu.Unlock()
+		if err != nil {
+			c.mu.Lock()
+			c.snapshot.LogError = "Session log archive write failed: " + err.Error()
+			c.mu.Unlock()
+		}
+	}
+	c.mu.Lock()
+	c.snapshot.LogCount++
+	c.mu.Unlock()
 }
 
 type logWriter struct {

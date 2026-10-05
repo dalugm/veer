@@ -53,7 +53,14 @@ func parseLog(raw string) logEntry {
 
 func (m *Model) logLines(w int) []string {
 	var rows []string
-	for _, raw := range m.snapshot.Logs {
+	logs := m.snapshot.Logs
+	if m.archivedLogs() {
+		logs = m.logSearch.result.Lines
+	}
+	for _, raw := range logs {
+		if !m.logMatches(raw) {
+			continue
+		}
 		entry := parseLog(raw)
 		shade := faint
 		switch entry.level {
@@ -82,7 +89,13 @@ func (m *Model) logBody(w, h int) string {
 	end := max(0, len(rows)-m.logOffset)
 	start := max(0, end-max(0, h-1))
 	header := faint.Render("TIME     LEVEL SOURCE           MESSAGE")
+	if m.snapshot.LogError != "" {
+		header += "\n" + faint.Render(safe(m.snapshot.LogError))
+	}
 	if len(rows) == 0 {
+		if m.logFilter != "" {
+			return header + "\n\n" + faint.Render("No matching logs. Press / to edit the search.")
+		}
 		return header + "\n\n" + faint.Render("No engine logs yet. Connect a profile.")
 	}
 	return header + "\n" + strings.Join(rows[start:end], "\n")
@@ -90,8 +103,41 @@ func (m *Model) logBody(w, h int) string {
 
 func (m *Model) logsView(w, h int) string {
 	mode := "LIVE"
-	if m.logOffset > 0 {
+	if m.logOffset > 0 || (m.archivedLogs() && m.logSearch.result.Skip > 0) {
 		mode = "SCROLLED · G follow"
 	}
+	if m.logFilter != "" {
+		matches := 0
+		for _, line := range m.snapshot.Logs {
+			if m.logMatches(line) {
+				matches++
+			}
+		}
+		total := len(m.snapshot.Logs)
+		if m.archivedLogs() {
+			matches = m.logSearch.result.Matches
+			total = int(m.logSearch.count)
+		}
+		mode += fmt.Sprintf(
+			" · / %s · %d/%d",
+			clip(safe(m.logFilter), 24),
+			matches,
+			total,
+		)
+		if m.archivedLogs() && matches > 0 {
+			end := matches - m.logSearch.result.Skip
+			mode += fmt.Sprintf(" · %d–%d", max(1, end-len(m.logSearch.result.Lines)+1), end)
+		}
+		if m.logSearch.loading {
+			mode += " · Searching…"
+		}
+	}
 	return box("ENGINE LOGS  /  "+mode, m.logBody(w-4, h-4), w, h)
+}
+
+func (m *Model) logMatches(line string) bool {
+	return strings.Contains(
+		strings.ToLower(safe(line)),
+		strings.ToLower(strings.TrimSpace(m.logFilter)),
+	)
 }

@@ -16,7 +16,8 @@ import (
 
 type helperOptions struct {
 	engine.Options
-	LogReader string
+	LogReader  string
+	LogArchive string
 }
 
 func authenticate(conn net.Conn, token string) (*bufio.Reader, error) {
@@ -72,8 +73,16 @@ func Serve(parent context.Context, address, token string) (result error) {
 	if err := validateLogReader(options.LogReader); err != nil {
 		return err
 	}
+	archive, err := openSessionArchive(options.LogArchive, options.LogReader)
+	if err != nil {
+		return err
+	}
+	if archive != nil {
+		defer func() { _ = archive.Close() }()
+	}
 	controller := session.New(
 		engine.Xray{},
+		session.WithLogArchive(archive),
 		session.WithLogAccess(func(ctx context.Context, file *os.File) error {
 			return grantLogRead(ctx, file, options.LogReader)
 		}),

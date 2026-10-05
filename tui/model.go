@@ -58,7 +58,9 @@ type Model struct {
 	showDetails                      bool
 	detailOffset                     int
 	profileFilter                    string
-	search                           *profileSearch
+	search                           *listSearch
+	logFilter                        string
+	logSearch                        archiveSearch
 	busyLabel                        string
 	downloads                        *downloadState
 	cancelWork                       context.CancelFunc

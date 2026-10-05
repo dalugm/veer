@@ -5,17 +5,9 @@ import (
 	"slices"
 	"strings"
 
-	"charm.land/bubbles/v2/textinput"
-	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
-
-type profileSearch struct {
-	input    textinput.Model
-	previous string
-	cursor   int
-}
 
 func (m *Model) visibleProfiles() []int {
 	query := strings.ToLower(strings.TrimSpace(m.profileFilter))
@@ -43,43 +35,6 @@ func (m *Model) ensureProfileCursor() {
 func (m *Model) hasFocusedProfile() bool {
 	return m.cursor >= 0 && m.cursor < len(m.config.Profiles) &&
 		slices.Contains(m.visibleProfiles(), m.cursor)
-}
-
-func (m *Model) startSearch() tea.Cmd {
-	if m.page != Profiles {
-		return nil
-	}
-	input := textinput.New()
-	input.Prompt = "/ "
-	input.Placeholder = "Search name, engine or path"
-	input.CharLimit = 200
-	input.SetWidth(max(12, m.width-8))
-	input.SetValue(m.profileFilter)
-	m.search = &profileSearch{input: input, previous: m.profileFilter, cursor: m.cursor}
-	m.pendingG = false
-	return m.search.input.Focus()
-}
-
-func (m *Model) updateSearch(msg tea.Msg) tea.Cmd {
-	if key, ok := msg.(tea.KeyPressMsg); ok {
-		switch key.String() {
-		case "enter":
-			m.search = nil
-			return nil
-		case "esc":
-			m.profileFilter, m.cursor = m.search.previous, m.search.cursor
-			m.search = nil
-			m.ensureProfileCursor()
-			return nil
-		case "ctrl+u":
-			m.search.input.SetValue("")
-		}
-	}
-	var cmd tea.Cmd
-	m.search.input, cmd = m.search.input.Update(msg)
-	m.profileFilter = m.search.input.Value()
-	m.ensureProfileCursor()
-	return cmd
 }
 
 func (m *Model) profileBody(w, h int) string {
