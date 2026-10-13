@@ -26,6 +26,8 @@ type Info struct {
 	TUN           bool
 	TUNName       string
 	TUNSystemDNS  bool
+	LuaDNS        bool
+	LuaRouting    bool
 	Endpoints     []string
 	Protocols     []string
 	ProxyEndpoint string
@@ -95,6 +97,12 @@ func Inspect(path string) (Info, error) {
 		return Info{}, errors.New("config exceeds 8 MiB")
 	}
 	var doc struct {
+		DNS struct {
+			Script string `json:"script"`
+		} `json:"dns"`
+		Routing struct {
+			Script string `json:"script"`
+		} `json:"routing"`
 		Log struct {
 			Access string `json:"access"`
 			Error  string `json:"error"`
@@ -118,7 +126,7 @@ func Inspect(path string) (Info, error) {
 	if len(doc.Inbounds) == 0 || len(doc.Outbounds) == 0 {
 		return Info{}, errors.New("Xray config needs inbounds and outbounds")
 	}
-	info := Info{}
+	info := Info{LuaDNS: doc.DNS.Script != "", LuaRouting: doc.Routing.Script != ""}
 	configPath, err := filepath.Abs(path)
 	if err != nil {
 		return Info{}, err

@@ -196,6 +196,13 @@ disconnecting and restoring them.
 Native Windows UAC/window behavior and real TUN networking require
 testing on the target host; cross-compilation does not validate them.
 
+Veer preserves native DNS/routing Lua scripts and resolves relative paths from
+the profile directory, even when statistics use a temporary configuration.
+Xray's `XRAY_LOCATION_CONFDIR` and `XRAY_LOCATION_CONFIG` environment overrides
+take precedence. Lua requires Xray v26.10.10+; Linux `autoSystemDnsToGateway`
+requires v26.9.30+. Veer checks these explicitly enabled features before native
+validation and network changes, without imposing a global minimum version.
+
 ## Geo assets
 
 In Tools, press **g**, choose a destination, then select **GitHub**,
