@@ -203,6 +203,9 @@ take precedence. Lua requires Xray v26.10.10+; Linux `autoSystemDnsToGateway`
 requires v26.9.30+. Veer checks these explicitly enabled features before native
 validation and network changes, without imposing a global minimum version.
 
+Lua-based client-template generation is not supported; use ordinary routing
+rules for templates that generate both proxy and TUN variants.
+
 ## Geo assets
 
 In Tools, press **g**, choose a destination, then select **GitHub**,

@@ -15,6 +15,15 @@ func BuildClientConfigs(
 	if err != nil {
 		return nil, nil, err
 	}
+	for _, section := range []string{"dns", "routing"} {
+		object, _ := tunDocument[section].(map[string]any)
+		if script, _ := object["script"].(string); script != "" {
+			// Scripts may refer to the TUN tags removed from the proxy variant.
+			return nil, nil, errors.New(
+				"client templates with Lua cannot safely generate a proxy variant; use native DNS and routing rules",
+			)
+		}
+	}
 	if err := applyClientCredentials(tunDocument, outboundTag, id, shortID); err != nil {
 		return nil, nil, err
 	}
