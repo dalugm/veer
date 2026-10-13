@@ -209,9 +209,18 @@ Xray's `XRAY_LOCATION_CONFDIR` and `XRAY_LOCATION_CONFIG` environment overrides
 take precedence. Lua requires Xray v26.10.10+; Linux `autoSystemDnsToGateway`
 requires v26.9.30+. Veer checks these explicitly enabled features before native
 validation and network changes, without imposing a global minimum version.
-
 Lua-based client-template generation is not supported; use ordinary routing
 rules for templates that generate both proxy and TUN variants.
+
+Keep `log.access: "access.log"` for routing diagnosis and `log.error:
+"error.log"` with `loglevel: "warning"` for diagnostics. Both appear in Logs.
+Before starting each connection, Veer rotates configured log files of at least
+50 MiB, retaining three archives (`.1` newest through `.3` oldest). Archived
+files retain their permissions and elevated-session read access. Rotation
+failures appear as warnings and do not prevent connection. Veer does not
+truncate or rotate files while the core is running; a long connection can
+exceed the threshold. The complete current-session search remains separate
+from these file archives.
 
 ## Geo assets
 

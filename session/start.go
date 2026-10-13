@@ -101,6 +101,7 @@ func (c *Controller) Start(parent context.Context, o engine.Options) error {
 	if err = ctx.Err(); err != nil {
 		return fail(err)
 	}
+	c.rotateLogFiles(ctx, plan.Info.LogFiles)
 	if err := c.prepareNetwork(ctx, plan.Info, o, &connectionNetwork); err != nil {
 		return fail(err)
 	}
