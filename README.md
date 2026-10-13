@@ -196,6 +196,13 @@ disconnecting and restoring them.
 Native Windows UAC/window behavior and real TUN networking require
 testing on the target host; cross-compilation does not validate them.
 
+TUN captures the IP families listed in `autoSystemRoutingTable`. To capture
+both, configure `["0.0.0.0/0", "::/0"]` and use DNS `queryStrategy: "UseIP"`.
+Configure both gateway prefixes for Windows/Linux; macOS only applies the IPv4
+gateway. Keep `autoOutboundsInterface: "auto"` to avoid outbound routing loops.
+Overview's **i** details show the configured route families; this is not a
+connectivity test. Verify IPv4 and IPv6 separately after reconnecting.
+
 Veer preserves native DNS/routing Lua scripts and resolves relative paths from
 the profile directory, even when statistics use a temporary configuration.
 Xray's `XRAY_LOCATION_CONFDIR` and `XRAY_LOCATION_CONFIG` environment overrides

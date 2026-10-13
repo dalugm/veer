@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,6 +27,8 @@ type Info struct {
 	TUN           bool
 	TUNName       string
 	TUNSystemDNS  bool
+	TUNIPv4       bool
+	TUNIPv6       bool
 	LuaDNS        bool
 	LuaRouting    bool
 	Endpoints     []string
@@ -110,8 +113,9 @@ func Inspect(path string) (Info, error) {
 		Inbounds []struct {
 			Protocol string `json:"protocol"`
 			Settings struct {
-				Name                   string `json:"name"`
-				AutoSystemDnsToGateway bool   `json:"autoSystemDnsToGateway"`
+				Name                   string   `json:"name"`
+				AutoSystemDnsToGateway bool     `json:"autoSystemDnsToGateway"`
+				Routes                 []string `json:"autoSystemRoutingTable"`
 			} `json:"settings"`
 			Listen string          `json:"listen"`
 			Port   json.RawMessage `json:"port"`
@@ -138,6 +142,12 @@ func Inspect(path string) (Info, error) {
 			info.TUN = true
 			info.TUNName = in.Settings.Name
 			info.TUNSystemDNS = info.TUNSystemDNS || in.Settings.AutoSystemDnsToGateway
+			for _, route := range in.Settings.Routes {
+				if prefix, err := netip.ParsePrefix(route); err == nil {
+					info.TUNIPv4 = info.TUNIPv4 || prefix.Addr().Is4()
+					info.TUNIPv6 = info.TUNIPv6 || prefix.Addr().Is6()
+				}
+			}
 			continue
 		}
 		if in.Protocol != "socks" && in.Protocol != "http" && in.Protocol != "mixed" {

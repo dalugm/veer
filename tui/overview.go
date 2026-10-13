@@ -70,6 +70,18 @@ func (m *Model) detailLines(w int) []string {
 			mode = "TUN · DNS " + m.dnsDescription()
 		}
 		lines = append(lines, "MODE     "+mode)
+		if m.info.TUN {
+			routes := "Manual"
+			switch {
+			case m.info.TUNIPv4 && m.info.TUNIPv6:
+				routes = "IPv4 + IPv6"
+			case m.info.TUNIPv4:
+				routes = "IPv4 only"
+			case m.info.TUNIPv6:
+				routes = "IPv6 only"
+			}
+			lines = append(lines, "ROUTES   "+routes)
+		}
 		for _, endpoint := range m.info.Endpoints {
 			lines = append(lines, "LISTEN   "+safe(endpoint))
 		}

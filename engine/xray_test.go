@@ -119,3 +119,15 @@ func TestInspectTUNSystemDNS(t *testing.T) {
 		}
 	}
 }
+
+func TestInspectTUNRouteFamilies(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	data := `{"inbounds":[{"protocol":"tun","settings":{"autoSystemRoutingTable":["0.0.0.0/0","::/0"]}}],"outbounds":[{"protocol":"freedom"}]}`
+	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	info, err := Inspect(path)
+	if err != nil || !info.TUNIPv4 || !info.TUNIPv6 {
+		t.Fatalf("info=%+v err=%v", info, err)
+	}
+}
