@@ -214,6 +214,8 @@ requires v26.9.30+. Veer checks these explicitly enabled features before native
 validation and network changes, without imposing a global minimum version.
 Lua-based client-template generation is not supported; use ordinary routing
 rules for templates that generate both proxy and TUN variants.
+Proxy generation removes only the TUN tag from shared inbound rules, preserving
+the remaining routing policy and any DNS outbound those rules still reference.
 
 Keep `log.access: "access.log"` for routing diagnosis and `log.error:
 "error.log"` with `loglevel: "warning"` for diagnostics. Both appear in Logs.

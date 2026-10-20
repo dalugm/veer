@@ -122,7 +122,20 @@ func stripTUN(document map[string]any) error {
 		}
 		if containsString(rule["inboundTag"], "in-tun") {
 			removedRule = true
-			continue
+			var tags []any
+			for _, tag := range rule["inboundTag"].([]any) {
+				if tag != "in-tun" {
+					tags = append(tags, tag)
+				}
+			}
+			if len(tags) == 0 {
+				continue
+			}
+			rule["inboundTag"] = tags
+		}
+		if rule["outboundTag"] == "out-dns" {
+			// A surviving local inbound may still need the DNS outbound.
+			document["outbounds"] = outbounds
 		}
 		filteredRules = append(filteredRules, rule)
 	}
