@@ -58,57 +58,15 @@ func AddUser(serverPath, templatePath, name, outputDir string) (Result, error) {
 		return Result{}, err
 	}
 
-	if err := writeAtomic(
-		filepath.Join(outputDir, "config-tun.json"),
-		clientData,
-		0o600,
-	); err != nil {
-		return Result{}, fmt.Errorf("write TUN client config: %w", err)
-	}
-	if err := writeAtomic(
-		filepath.Join(outputDir, "config-proxy.json"),
-		proxyData,
-		0o600,
-	); err != nil {
-		return Result{}, fmt.Errorf("write proxy client config: %w", err)
-	}
-	if err := writeAtomic(
-		filepath.Join(outputDir, "link.txt"),
-		[]byte(link+"\n"),
-		0o600,
-	); err != nil {
-		return Result{}, fmt.Errorf("write VLESS link: %w", err)
-	}
 	backup := serverPath + ".bak"
-	if err := writeAtomic(backup, serverData, 0o600); err != nil {
-		return Result{}, fmt.Errorf("backup server config: %w", err)
-	}
-	if err := writeAtomic(serverPath, updatedServerData, 0o600); err != nil {
-		return Result{}, fmt.Errorf("write server config: %w", err)
+	if err := publishFiles([]pendingFile{
+		{path: filepath.Join(outputDir, "config-tun.json"), data: clientData},
+		{path: filepath.Join(outputDir, "config-proxy.json"), data: proxyData},
+		{path: filepath.Join(outputDir, "link.txt"), data: []byte(link + "\n")},
+		{path: backup, data: serverData},
+		{path: serverPath, data: updatedServerData, expected: serverData},
+	}, os.Rename); err != nil {
+		return Result{}, err
 	}
 	return Result{ID: id, ClientDirectory: outputDir, BackupPath: backup}, nil
-}
-
-func writeAtomic(path string, data []byte, mode os.FileMode) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return err
-	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".veer-*")
-	if err != nil {
-		return err
-	}
-	tmpName := tmp.Name()
-	defer func() { _ = os.Remove(tmpName) }()
-	if err := tmp.Chmod(mode); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmpName, path)
 }

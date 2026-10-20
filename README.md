@@ -343,5 +343,11 @@ client bundles. `serverconfig` owns server-user writes and backups; this
 backend API has no TUI entry point. Their Xray configuration transformations
 and validation belong to `engine`.
 
+Server-user writes stage the client configs, share link, server backup and
+updated server config before publication, publishing the server last. A failed
+publication restores previous files; failed rollback retains private recovery
+files and reports their location. Callers must serialize writes to the same
+server and output files.
+
 `download` reports streaming byte progress. `geofile` and `engine/coreupdate`
 own their download and validation workflows; `tui` combines and renders progress.

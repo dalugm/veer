@@ -70,3 +70,42 @@ func TestAddUserKeepsServerAndBothClientVariantsConsistent(t *testing.T) {
 		t.Fatal("duplicate user was accepted")
 	}
 }
+
+func TestAddUserBackupFailurePreservesExistingClients(t *testing.T) {
+	dir := t.TempDir()
+	server := filepath.Join(dir, "server.json")
+	template := filepath.Join(dir, "template.json")
+	original := []byte(
+		`{"inbounds":[{"protocol":"vless","settings":{"clients":[]},"streamSettings":{"realitySettings":{"shortIds":["fedcba9876543210"]}}}]}`,
+	)
+	if err := os.WriteFile(server, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(template, testTemplate(t), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(server+".bak", 0o700); err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(dir, "client")
+	if err := os.Mkdir(output, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	previous := map[string][]byte{server: original}
+	for _, name := range []string{"config-tun.json", "config-proxy.json", "link.txt"} {
+		path := filepath.Join(output, name)
+		previous[path] = []byte("previous working " + name)
+		if err := os.WriteFile(path, previous[path], 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := AddUser(server, template, "new-user", output); err == nil {
+		t.Fatal("accepted blocked backup path")
+	}
+	for path, expected := range previous {
+		data, err := os.ReadFile(path)
+		if err != nil || !bytes.Equal(data, expected) {
+			t.Fatalf("failed operation changed %s: %v", path, err)
+		}
+	}
+}
