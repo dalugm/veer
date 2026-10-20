@@ -112,7 +112,10 @@ func TestHelperSessionStopsOnDisconnect(t *testing.T) {
 				}
 			}
 			select {
-			case <-served:
+			case err := <-served:
+				if err != nil {
+					t.Fatalf("helper cleanup failed: %v", err)
+				}
 			case <-time.After(6 * time.Second):
 				t.Fatal("helper did not finish cleanup")
 			}

@@ -53,7 +53,9 @@ func TestCancelledRemoteReturnsToStopped(t *testing.T) {
 		t.Fatal("helper launch timed out")
 	}
 	cancel()
-	<-result
+	if err := <-result; err == nil {
+		t.Fatal("cancelled startup returned success")
+	}
 	<-r.done
 	if s := r.Snapshot(); s.State != session.Stopped || s.Ready || s.PID != 0 {
 		t.Fatalf("cancelled remote stuck: %#v", s)
