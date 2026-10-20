@@ -13,11 +13,11 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/dalugm/veer/settings"
 	"github.com/dalugm/veer/sharelink"
-	qr "github.com/piglig/go-qr"
+	"github.com/piglig/go-qr/v2"
 )
 
 type qrItem struct {
-	code *qr.QrCode
+	code *qr.Code
 	err  string
 }
 type qrModal struct {
@@ -90,7 +90,7 @@ func loadQR(ctx context.Context, p settings.Profile) (*qrModal, error) {
 		if err != nil {
 			item.err = "This VLESS outbound cannot be represented as a share link."
 		} else {
-			item.code, err = qr.EncodeText(link, qr.Low)
+			item.code, err = qr.Encode(link, qr.WithECC(qr.ECCLow))
 			if err != nil {
 				item.err = "Share link is too long to encode as a QR code."
 			}
@@ -173,7 +173,7 @@ func (m *Model) qrView(w, h int) string {
 
 // renderQR packs two module rows into each cell and keeps a four-module quiet
 // zone. Explicit dark-on-light colors keep it scannable independent of terminal theme.
-func renderQR(code *qr.QrCode) string {
+func renderQR(code *qr.Code) string {
 	var b strings.Builder
 	size := code.Size() + 8
 	for y := 0; y < size; y += 2 {

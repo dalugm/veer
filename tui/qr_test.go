@@ -13,7 +13,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/dalugm/veer/settings"
-	qr "github.com/piglig/go-qr"
+	"github.com/piglig/go-qr/v2"
 )
 
 const qrOutbound = `{"protocol":"vless","settings":{"vnext":[{"address":"example.com","port":443,"users":[{"id":"private-test-id"}]}]},"streamSettings":{"network":"tcp","security":"tls"}}`
@@ -85,7 +85,7 @@ func TestQRSharingAndNavigation(t *testing.T) {
 		}
 	}
 	decoded, err := qr.Decode(img)
-	if err != nil || !strings.HasPrefix(decoded, "vless://private-test-id@example.com:443?") {
+	if err != nil || !strings.HasPrefix(decoded.Text, "vless://private-test-id@example.com:443?") {
 		t.Fatalf("round trip: %v", err)
 	}
 	m.width, m.height = 60, 18
@@ -100,7 +100,7 @@ func TestQRSharingAndNavigation(t *testing.T) {
 
 func TestQRModalBackground(t *testing.T) {
 	m := newTestModel(t)
-	code, err := qr.EncodeText("test", qr.Low)
+	code, err := qr.Encode("test", qr.WithECC(qr.ECCLow))
 	if err != nil {
 		t.Fatal(err)
 	}

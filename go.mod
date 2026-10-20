@@ -8,7 +8,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/charmbracelet/x/ansi v0.11.9
 	github.com/charmbracelet/x/term v0.2.2
-	github.com/piglig/go-qr v1.1.0
+	github.com/piglig/go-qr/v2 v2.7.0
 	golang.org/x/mod v0.42.0
 	golang.org/x/sys v0.49.0
 	google.golang.org/protobuf v1.36.12
