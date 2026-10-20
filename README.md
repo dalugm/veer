@@ -192,6 +192,9 @@ a system SOCKS proxy and is left unchanged.
 If restoring DNS or proxy settings fails, the session retains the
 original settings and blocks reconnecting. Press **s** again to retry
 disconnecting and restoring them.
+If cleanup fails during a keyboard-requested quit, Veer stays open and keeps
+the original settings available for the same retry. Quit again after cleanup
+succeeds.
 
 Native Windows UAC/window behavior and real TUN networking require
 testing on the target host; cross-compilation does not validate them.

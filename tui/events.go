@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"errors"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -11,8 +12,27 @@ import (
 // Update handles terminal input and asynchronous results.
 func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	if m.quitting {
+		if _, ok := message.(tickMsg); ok {
+			m.phase++
+			m.snapshot = m.backend.Snapshot()
+			return m, tick()
+		}
 		if result, ok := message.(sessionMsg); ok && result.quit {
-			return m, tea.Quit
+			s := m.backend.Snapshot()
+			if !s.CleanupPending && (s.State == session.Stopped || s.State == session.Failed) {
+				return m, tea.Quit
+			}
+			m.quitting = false
+			m.workers.resume()
+			m.form, m.qr, m.search = nil, nil, nil
+			m.showHelp, m.showDetails, m.updates.open = false, false, false
+			m.confirmation = ""
+			result.quit = false
+			if result.err == nil {
+				result.err = errors.New("session cleanup is incomplete")
+			}
+			m.sessionResult(result)
+			m.notice = "Cannot quit: " + result.err.Error() + ". Press s to retry cleanup."
 		}
 		return m, nil
 	}

@@ -115,6 +115,7 @@ func (m *Model) stop(quit bool) tea.Cmd {
 
 func (m *Model) quit() tea.Cmd {
 	m.cancelUpdateCheck()
+	m.clearArchiveSearch()
 	m.clearPathCompletion()
 	m.quitting = true
 	if m.auth != nil {

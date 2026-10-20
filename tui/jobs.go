@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"context"
 	"sync"
 
 	tea "charm.land/bubbletea/v2"
@@ -11,15 +10,20 @@ import (
 type jobs struct {
 	mu     sync.Mutex
 	closed bool
+	epoch  uint64
 	wg     sync.WaitGroup
 }
 
 func (j *jobs) track(cmd tea.Cmd) tea.Cmd {
+	j.mu.Lock()
+	epoch := j.epoch
+	closed := j.closed
+	j.mu.Unlock()
 	return func() tea.Msg {
 		j.mu.Lock()
-		if j.closed {
+		if closed || j.closed || epoch != j.epoch {
 			j.mu.Unlock()
-			return actionMsg{err: context.Canceled}
+			return nil
 		}
 		j.wg.Add(1)
 		j.mu.Unlock()
@@ -27,7 +31,21 @@ func (j *jobs) track(cmd tea.Cmd) tea.Cmd {
 		return cmd()
 	}
 }
-func (j *jobs) close() { j.mu.Lock(); j.closed = true; j.mu.Unlock(); j.wg.Wait() }
+
+func (j *jobs) close() {
+	j.mu.Lock()
+	j.closed = true
+	j.epoch++
+	j.mu.Unlock()
+	j.wg.Wait()
+}
+
+// resume accepts new work after a failed quit. Previously queued work remains fenced.
+func (j *jobs) resume() {
+	j.mu.Lock()
+	j.closed = false
+	j.mu.Unlock()
+}
 
 // Shutdown prevents queued operations from starting and waits for active work.
 // Call after cancelling the application context and before stopping the backend.
