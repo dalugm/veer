@@ -272,7 +272,7 @@ press **u** to open the core updater, **r** to check, and **j/k** or
 installed core are listed, newest first. Press **Enter** to review and
 confirm downloading and replacing the configured Xray executable with
 the selected version.  **Esc** cancels a check or download, or returns
-to Tools.
+to Tools. Press **?** for updater controls, including while downloading.
 
 Choose **Stable** with **h/←**, or explicitly select **Preview** with
 **l/→**.  **Stable** is the default and excludes prereleases;

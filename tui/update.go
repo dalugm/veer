@@ -141,6 +141,10 @@ func (m *Model) updateChecked(msg updateCheckedMsg) {
 }
 
 func (m *Model) updateKey(key string) tea.Cmd {
+	if key == "?" {
+		m.showHelp = true
+		return nil
+	}
 	if m.busy {
 		if key == "esc" && m.cancelWork != nil {
 			m.cancelWork()
