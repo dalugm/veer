@@ -14,6 +14,7 @@ import (
 
 type releaseUpdater interface {
 	Check(context.Context, string, update.Channel) ([]update.Release, error)
+	InstalledChannel(context.Context, string) (update.Channel, error)
 	Install(
 		context.Context,
 		string,
@@ -27,6 +28,8 @@ type releaseUpdater interface {
 type appUpdate struct {
 	client                          releaseUpdater
 	current, status, backup, binary string
+	installedChannel                update.Channel
+	channelVersion, channelBinary   string
 	readVersion                     func(context.Context, string) (string, error)
 	latest                          *update.Release
 	releases                        []update.Release
@@ -38,14 +41,16 @@ type appUpdate struct {
 }
 
 type updateCheckedMsg struct {
-	seq             uint64
-	channel         update.Channel
-	binary, version string
-	releases        []update.Release
-	err             error
+	seq              uint64
+	channel          update.Channel
+	installedChannel update.Channel
+	binary, version  string
+	releases         []update.Release
+	err              error
 }
 
 type updateInstalledMsg struct {
+	channel update.Channel
 	result  update.Result
 	err     error
 	saveErr error
@@ -75,16 +80,19 @@ func (m *Model) checkUpdate() tea.Cmd {
 		defer cancel()
 		v, err := read(ctx, binary)
 		var releases []update.Release
+		var installedChannel update.Channel
 		if err == nil {
+			installedChannel, _ = client.InstalledChannel(ctx, v)
 			releases, err = client.Check(ctx, v, channel)
 		}
 		return updateCheckedMsg{
-			seq:      seq,
-			channel:  channel,
-			releases: releases,
-			err:      err,
-			binary:   binary,
-			version:  v,
+			seq:              seq,
+			channel:          channel,
+			installedChannel: installedChannel,
+			releases:         releases,
+			err:              err,
+			binary:           binary,
+			version:          v,
 		}
 	})
 }
@@ -103,6 +111,8 @@ func (m *Model) updateChecked(msg updateCheckedMsg) {
 	if len(m.updates.releases) > 0 {
 		m.updates.latest = &m.updates.releases[0]
 	}
+	m.updates.installedChannel = msg.installedChannel
+	m.updates.channelVersion, m.updates.channelBinary = msg.version, msg.binary
 	m.updates.binary = msg.binary
 	m.updates.current = update.ParseVersion(msg.version)
 	if m.updates.current == "" {
@@ -211,7 +221,12 @@ func (m *Model) installUpdate() tea.Cmd {
 			return updateInstalledMsg{err: err}
 		}
 		result, err := client.Install(ctx, binary, current, release, report)
-		return persistCoreUpdate(result, err, config, path)
+		msg := persistCoreUpdate(result, err, config, path)
+		msg.channel = update.Stable
+		if release.Prerelease {
+			msg.channel = update.Preview
+		}
+		return msg
 	})
 }
 
@@ -273,6 +288,8 @@ func (m *Model) updateInstalled(msg updateInstalledMsg) {
 	if m.version == "" {
 		m.version = "Xray " + strings.TrimPrefix(msg.result.Version, "v")
 	}
+	m.updates.installedChannel = msg.channel
+	m.updates.channelVersion, m.updates.channelBinary = m.version, m.config.EnginePath
 	m.updates.latest = nil
 	m.updates.releases, m.updates.cursor = nil, 0
 	m.updates.status = "Updated to " + msg.result.Version + ". Ready to connect."
@@ -297,7 +314,7 @@ func (m *Model) updateView(w, h int) string {
 		stable = "● Stable"
 	}
 	lines := []string{
-		"Xray " + safe(m.updates.current),
+		"Xray " + safe(m.updates.current) + " · " + m.installedChannelLabel(),
 		accent.Render(stable + "    " + preview),
 		safe(m.updates.status),
 	}
@@ -353,4 +370,21 @@ func (m *Model) moveUpdateSelection(delta int) {
 		return
 	}
 	m.updates.cursor = max(0, min(len(m.updates.releases)-1, m.updates.cursor+delta))
+}
+
+// installedChannelLabel describes the installed binary, independently of the update filter.
+func (m *Model) installedChannelLabel() string {
+	channel := update.LocalChannel(m.version)
+	if m.updates.channelVersion == m.version && m.updates.channelBinary == m.config.EnginePath &&
+		m.updates.installedChannel != "" {
+		channel = m.updates.installedChannel
+	}
+	switch channel {
+	case update.Stable:
+		return "Stable"
+	case update.Preview:
+		return "Preview"
+	default:
+		return "Unknown"
+	}
 }

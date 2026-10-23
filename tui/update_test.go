@@ -25,6 +25,10 @@ type fakeUpdater struct {
 	started          chan struct{}
 }
 
+func (f *fakeUpdater) InstalledChannel(context.Context, string) (update.Channel, error) {
+	return update.Stable, nil
+}
+
 func (f *fakeUpdater) Restore(
 	_ context.Context,
 	binary, backup, expectedTarget string,
@@ -377,5 +381,35 @@ func TestOldVersionProbeCannotOverwriteUpdatedCore(t *testing.T) {
 	m.Update(old)
 	if m.version != "Xray 1.1.0" {
 		t.Fatal("late version probe overwrote updated core")
+	}
+}
+
+func TestInstalledChannelIndependentOfUpdateFilter(t *testing.T) {
+	m, _ := updaterModel(t)
+	m.version = "Xray 26.10.21"
+	m.updates.current = "v26.10.21"
+	m.updates.channelVersion, m.updates.channelBinary = m.version, m.config.EnginePath
+	m.updates.installedChannel = update.Preview
+	m.config.CoreUpdateChannel = "stable"
+	if view := ansi.Strip(
+		m.updateView(90, 20),
+	); !strings.Contains(
+		view,
+		"Xray v26.10.21 · Preview",
+	) {
+		t.Fatal(view)
+	}
+	m.config.CoreUpdateChannel = "preview"
+	m.updates.installedChannel = update.Stable
+	if got := m.installedChannelLabel(); got != "Stable" {
+		t.Fatal(got)
+	}
+	m.version = "Xray 26.10.22"
+	if got := m.installedChannelLabel(); got != "Unknown" {
+		t.Fatal("retained stale status: " + got)
+	}
+	m.version = "Xray 26.10.22 (Xray, Penetrates Everything.) v26.10.22-rc.1 (go1.27)"
+	if got := m.installedChannelLabel(); got != "Preview" {
+		t.Fatal(got)
 	}
 }
