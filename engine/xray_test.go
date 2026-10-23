@@ -1,10 +1,48 @@
 package engine
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 )
+
+func TestInspectSkipsAuthenticatedSystemProxyListeners(t *testing.T) {
+	for _, tt := range []struct {
+		name, inbounds, want string
+		endpoints            int
+	}{
+		{"password socks", `{"protocol":"socks","port":1080,"settings":{"auth":"password"}}`, "", 1},
+		{"password mixed", `{"protocol":"mixed","port":2080,"settings":{"auth":"password"}}`, "", 1},
+		{"explicit noauth", `{"protocol":"mixed","port":2080,"settings":{"auth":"noauth"}}`, "127.0.0.1:2080", 1},
+		{"authenticated mixed after socks", `{"protocol":"socks","port":1080},{"protocol":"mixed","port":2080,"settings":{"auth":"password"}}`, "127.0.0.1:1080", 2},
+		{"authenticated mixed before socks", `{"protocol":"mixed","port":2080,"settings":{"auth":"password"}},{"protocol":"socks","port":1080}`, "127.0.0.1:1080", 2},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.json")
+			data := fmt.Sprintf(
+				`{"inbounds":[%s],"outbounds":[{"protocol":"freedom"}]}`,
+				tt.inbounds,
+			)
+			if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			info, err := Inspect(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if info.ProxyEndpoint != tt.want || len(info.Endpoints) != tt.endpoints {
+				t.Fatalf(
+					"proxy %q, listeners %v; want proxy %q and %d listeners",
+					info.ProxyEndpoint,
+					info.Endpoints,
+					tt.want,
+					tt.endpoints,
+				)
+			}
+		})
+	}
+}
 
 func TestInspectConfig(t *testing.T) {
 	for _, tc := range []struct {

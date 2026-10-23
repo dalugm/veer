@@ -181,7 +181,8 @@ management; Xray's TUN `dns` field does not modify macOS system DNS.
 
 When a configuration has no TUN inbound but has a loopback SOCKS or
 mixed inbound, Veer also applies that listener as the system SOCKS
-proxy while the session is running. The previous proxy settings are
+proxy while the session is running. Listeners requiring authentication
+are excluded from automatic system proxy selection. The previous proxy settings are
 captured and restored on disconnect, startup failure or exit. macOS
 uses `networksetup`, Windows uses the current-user Internet Settings
 registry, and Linux uses GNOME-compatible `gsettings`. A TUN inbound

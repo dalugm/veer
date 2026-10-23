@@ -113,6 +113,7 @@ func Inspect(path string) (Info, error) {
 		Inbounds []struct {
 			Protocol string `json:"protocol"`
 			Settings struct {
+				Auth                   string   `json:"auth"`
 				Name                   string   `json:"name"`
 				AutoSystemDnsToGateway bool     `json:"autoSystemDnsToGateway"`
 				Routes                 []string `json:"autoSystemRoutingTable"`
@@ -174,7 +175,10 @@ func Inspect(path string) (Info, error) {
 			continue
 		}
 		info.Endpoints = append(info.Endpoints, net.JoinHostPort(host, strconv.Itoa(port)))
-		if (in.Protocol == "socks" || in.Protocol == "mixed") && isLocalHost(host) {
+		// System proxy configuration carries no credentials. Authenticated
+		// listeners still participate in readiness probes, but are not selected.
+		if (in.Protocol == "socks" || in.Protocol == "mixed") && isLocalHost(host) &&
+			(in.Settings.Auth == "" || in.Settings.Auth == "noauth") {
 			endpoint := net.JoinHostPort(host, strconv.Itoa(port))
 			if in.Protocol == "mixed" {
 				if !proxyMixed {
