@@ -37,6 +37,7 @@ var (
 	httpClient = &http.Client{
 		Timeout: 10 * time.Minute,
 		Transport: &http.Transport{
+			Proxy:                 http.ProxyFromEnvironment,
 			ResponseHeaderTimeout: 30 * time.Second,
 		},
 	}

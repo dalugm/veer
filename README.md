@@ -236,6 +236,7 @@ on the source selector to download `geoip.dat` and
 update preserves the existing files and metadata. Downloads are
 validated as Xray GeoSite/GeoIP data before publication. If an OS error
 also prevents rollback, Veer keeps recovery files and reports their path.
+Geo downloads honor `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` environment settings.
 
 Tools reads the configured Geo directory, or the selected profile's
 directory when no override is set. After downloading, it displays the
