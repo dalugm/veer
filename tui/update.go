@@ -28,8 +28,6 @@ type releaseUpdater interface {
 type appUpdate struct {
 	client                          releaseUpdater
 	current, status, backup, binary string
-	installedChannel                update.Channel
-	channelVersion, channelBinary   string
 	readVersion                     func(context.Context, string) (string, error)
 	latest                          *update.Release
 	releases                        []update.Release
@@ -111,8 +109,7 @@ func (m *Model) updateChecked(msg updateCheckedMsg) {
 	if len(m.updates.releases) > 0 {
 		m.updates.latest = &m.updates.releases[0]
 	}
-	m.updates.installedChannel = msg.installedChannel
-	m.updates.channelVersion, m.updates.channelBinary = msg.version, msg.binary
+	m.rememberVersionChannel(msg.version, msg.installedChannel)
 	m.updates.binary = msg.binary
 	m.updates.current = update.ParseVersion(msg.version)
 	if m.updates.current == "" {
@@ -292,8 +289,7 @@ func (m *Model) updateInstalled(msg updateInstalledMsg) {
 	if m.version == "" {
 		m.version = "Xray " + strings.TrimPrefix(msg.result.Version, "v")
 	}
-	m.updates.installedChannel = msg.channel
-	m.updates.channelVersion, m.updates.channelBinary = m.version, m.config.EnginePath
+	m.rememberVersionChannel(m.version, msg.channel)
 	m.updates.latest = nil
 	m.updates.releases, m.updates.cursor = nil, 0
 	m.updates.status = "Updated to " + msg.result.Version + ". Ready to connect."
@@ -318,7 +314,7 @@ func (m *Model) updateView(w, h int) string {
 		stable = "● Stable"
 	}
 	lines := []string{
-		"Xray " + safe(m.updates.current) + " · " + m.installedChannelLabel(),
+		"Xray " + safe(m.updates.current) + " · " + m.versionChannelLabel(m.version),
 		accent.Render(stable + "    " + preview),
 		safe(m.updates.status),
 	}
@@ -374,21 +370,4 @@ func (m *Model) moveUpdateSelection(delta int) {
 		return
 	}
 	m.updates.cursor = max(0, min(len(m.updates.releases)-1, m.updates.cursor+delta))
-}
-
-// installedChannelLabel describes the installed binary, independently of the update filter.
-func (m *Model) installedChannelLabel() string {
-	channel := update.LocalChannel(m.version)
-	if m.updates.channelVersion == m.version && m.updates.channelBinary == m.config.EnginePath &&
-		m.updates.installedChannel != "" {
-		channel = m.updates.installedChannel
-	}
-	switch channel {
-	case update.Stable:
-		return "Stable"
-	case update.Preview:
-		return "Preview"
-	default:
-		return "Unknown"
-	}
 }

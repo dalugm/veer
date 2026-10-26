@@ -65,6 +65,7 @@ type Model struct {
 	downloads                        *downloadState
 	cancelWork                       context.CancelFunc
 	version                          string
+	versionChannels                  map[string]update.Channel
 	runningVersion                   string
 	info                             engine.Info
 	phase                            int

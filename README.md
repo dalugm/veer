@@ -309,6 +309,12 @@ elevation.  For package-manager installations, use the package manager
 when its directory is not writable. Missing or unrecognized local Xray
 versions must be resolved in Settings before updating.
 
+Overview and connection details label the running core as Stable or Preview;
+Settings and the updater label the installed core. Numeric versions show Unknown
+until a manual release check confirms their status. Explicit prerelease suffixes
+can be identified locally. Confirmed labels are shared across pages for this
+Veer session; viewing them does not perform another network check.
+
 ## Settings storage
 
 Settings live in `veer/settings.json` under the OS user-config

@@ -388,8 +388,7 @@ func TestInstalledChannelIndependentOfUpdateFilter(t *testing.T) {
 	m, _ := updaterModel(t)
 	m.version = "Xray 26.10.21"
 	m.updates.current = "v26.10.21"
-	m.updates.channelVersion, m.updates.channelBinary = m.version, m.config.EnginePath
-	m.updates.installedChannel = update.Preview
+	m.rememberVersionChannel(m.version, update.Preview)
 	m.config.CoreUpdateChannel = "stable"
 	if view := ansi.Strip(
 		m.updateView(90, 20),
@@ -400,16 +399,16 @@ func TestInstalledChannelIndependentOfUpdateFilter(t *testing.T) {
 		t.Fatal(view)
 	}
 	m.config.CoreUpdateChannel = "preview"
-	m.updates.installedChannel = update.Stable
-	if got := m.installedChannelLabel(); got != "Stable" {
+	m.rememberVersionChannel(m.version, update.Stable)
+	if got := m.versionChannelLabel(m.version); got != "Stable" {
 		t.Fatal(got)
 	}
 	m.version = "Xray 26.10.22"
-	if got := m.installedChannelLabel(); got != "Unknown" {
+	if got := m.versionChannelLabel(m.version); got != "Unknown" {
 		t.Fatal("retained stale status: " + got)
 	}
 	m.version = "Xray 26.10.22 (Xray, Penetrates Everything.) v26.10.22-rc.1 (go1.27)"
-	if got := m.installedChannelLabel(); got != "Preview" {
+	if got := m.versionChannelLabel(m.version); got != "Preview" {
 		t.Fatal(got)
 	}
 }

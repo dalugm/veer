@@ -68,6 +68,7 @@ func restartModel(t *testing.T) (*Model, *restartBackend) {
 	b := &restartBackend{state: session.Running}
 	m.backend = b
 	m.runningVersion, m.version = "Xray 1.0.0", "Xray 1.0.0"
+	m.rememberVersionChannel(m.version, update.Stable)
 	path := filepath.Join(t.TempDir(), "profile.json")
 	if err := os.WriteFile(
 		path,
@@ -89,21 +90,22 @@ func TestUpdatePromptsAndKeepsRunningVersionUntilRestart(t *testing.T) {
 		m, b := restartModel(t)
 		_, cmd := m.Update(
 			updateInstalledMsg{
-				result: update.Result{Version: "v1.1.0", VersionOutput: "Xray 1.1.0"},
+				channel: update.Preview,
+				result:  update.Result{Version: "v1.1.0", VersionOutput: "Xray 1.1.0"},
 			},
 		)
 		if cmd != nil || b.stops != 0 || m.confirmation != "restart-update" ||
-			m.coreLabel() != "Xray 1.0.0" {
+			m.coreLabel() != "Xray 1.0.0 · Stable" {
 			t.Fatal("installation restarted or changed running version")
 		}
 		// A subsequent disk version probe must not change the running version.
 		m.Update(actionMsg{version: "Xray 1.1.0"})
-		if m.coreLabel() != "Xray 1.0.0" {
+		if m.coreLabel() != "Xray 1.0.0 · Stable" {
 			t.Fatal("disk version replaced running version")
 		}
 		if !immediately {
 			press(m, 'n')
-			if b.stops != 0 || m.coreLabel() != "Xray 1.0.0" {
+			if b.stops != 0 || m.coreLabel() != "Xray 1.0.0 · Stable" {
 				t.Fatal("declining restarted the connection")
 			}
 			_, cmd = m.Update(tea.KeyPressMsg{Code: 'r', Text: "r"})
@@ -111,7 +113,7 @@ func TestUpdatePromptsAndKeepsRunningVersionUntilRestart(t *testing.T) {
 			_, cmd = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 		}
 		runCommands(m, cmd)
-		if b.stops != 1 || b.starts != 1 || m.coreLabel() != "Xray 1.1.0" || m.busy {
+		if b.stops != 1 || b.starts != 1 || m.coreLabel() != "Xray 1.1.0 · Preview" || m.busy {
 			t.Fatalf(
 				"restart: stops=%d starts=%d version=%s notice=%s",
 				b.stops,
@@ -145,7 +147,7 @@ func TestRestartFailureAndCancellationDoNotStartAnotherCore(t *testing.T) {
 		if kind != "start failure" && b.starts != 0 {
 			t.Fatal("started after cancellation or stop failure")
 		}
-		if kind == "stop failure" && m.coreLabel() != "Xray 1.0.0" {
+		if kind == "stop failure" && m.coreLabel() != "Xray 1.0.0 · Stable" {
 			t.Fatal("failed stop lost running version")
 		}
 		if kind == "start failure" && (m.runningVersion != "" || !m.bad) {
@@ -161,7 +163,7 @@ func TestOverviewPreservesRunningPrereleaseVersion(t *testing.T) {
 		updateInstalledMsg{result: update.Result{Version: "v1.2.0", VersionOutput: "Xray 1.2.0"}},
 	)
 	press(m, 'n')
-	if m.coreLabel() != "Xray 1.2.0-rc.2" {
+	if m.coreLabel() != "Xray 1.2.0-rc.2 · Preview" {
 		t.Fatalf("running prerelease lost: %s", m.coreLabel())
 	}
 }
