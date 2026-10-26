@@ -61,6 +61,7 @@ type Model struct {
 	search                           *listSearch
 	logFilter                        string
 	logSearch                        archiveSearch
+	logPin                           logPinState
 	busyLabel                        string
 	downloads                        *downloadState
 	cancelWork                       context.CancelFunc

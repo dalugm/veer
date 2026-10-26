@@ -14,7 +14,7 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	if m.quitting {
 		if _, ok := message.(tickMsg); ok {
 			m.phase++
-			m.snapshot = m.backend.Snapshot()
+			m.refreshSnapshot()
 			return m, tick()
 		}
 		if result, ok := message.(sessionMsg); ok && result.quit {
@@ -108,7 +108,7 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tickMsg:
 		m.phase++
-		m.snapshot = m.backend.Snapshot()
+		m.refreshSnapshot()
 		m.observeTraffic(time.Time(msg))
 		return m, tea.Batch(tick(), m.refreshArchiveSearch())
 	case actionMsg:
@@ -194,7 +194,7 @@ func (m *Model) sessionResult(msg sessionMsg) tea.Cmd {
 	m.auth = nil
 	m.busy = false
 	m.cancelWork = nil
-	m.snapshot = m.backend.Snapshot()
+	m.refreshSnapshot()
 	m.observeTraffic(time.Now())
 	if msg.started && msg.err == nil && m.snapshot.State == session.Running {
 		m.runningVersion = msg.version

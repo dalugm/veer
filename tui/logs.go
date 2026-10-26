@@ -52,34 +52,40 @@ func parseLog(raw string) logEntry {
 }
 
 func (m *Model) logLines(w int) []string {
-	var rows []string
 	logs := m.snapshot.Logs
 	if m.archivedLogs() {
 		logs = m.logSearch.result.Lines
 	}
+	var rows []string
 	for _, raw := range logs {
-		if !m.logMatches(raw) {
-			continue
+		rows = append(rows, m.logRows(raw, w)...)
+	}
+	return rows
+}
+
+// logRows renders one raw log line as zero or more wrapped view rows.
+func (m *Model) logRows(raw string, w int) []string {
+	if !m.logMatches(raw) {
+		return nil
+	}
+	entry := parseLog(raw)
+	shade := faint
+	switch entry.level {
+	case "ERROR", "FATAL", "PANIC":
+		shade = lipgloss.NewStyle().Foreground(rose)
+	case "WARN":
+		shade = lipgloss.NewStyle().Foreground(lipgloss.Color("#E9C46A"))
+	case "INFO":
+		shade = accent
+	}
+	prefix := fmt.Sprintf("%-8s %-5s %-16s ", entry.time, entry.level, clip(entry.source, 16))
+	var rows []string
+	for i, part := range strings.Split(ansi.Hardwrap(entry.message, max(1, w-logPrefixWidth), false), "\n") {
+		lead := strings.Repeat(" ", logPrefixWidth)
+		if i == 0 {
+			lead = shade.Render(prefix)
 		}
-		entry := parseLog(raw)
-		shade := faint
-		switch entry.level {
-		case "ERROR", "FATAL", "PANIC":
-			shade = lipgloss.NewStyle().Foreground(rose)
-		case "WARN":
-			shade = lipgloss.NewStyle().Foreground(lipgloss.Color("#E9C46A"))
-		case "INFO":
-			shade = accent
-		}
-		prefix := fmt.Sprintf("%-8s %-5s %-16s ", entry.time, entry.level, clip(entry.source, 16))
-		parts := strings.Split(ansi.Hardwrap(entry.message, max(1, w-logPrefixWidth), false), "\n")
-		for i, part := range parts {
-			lead := strings.Repeat(" ", logPrefixWidth)
-			if i == 0 {
-				lead = shade.Render(prefix)
-			}
-			rows = append(rows, lead+base.Render(part))
-		}
+		rows = append(rows, lead+base.Render(part))
 	}
 	return rows
 }
@@ -140,4 +146,37 @@ func (m *Model) logMatches(line string) bool {
 		strings.ToLower(safe(line)),
 		strings.ToLower(strings.TrimSpace(m.logFilter)),
 	)
+}
+
+// logPinState remembers the tail of the log buffer already accounted for by
+// the current scroll offset, so later refreshes can measure what was appended.
+type logPinState struct {
+	count uint64
+	width int
+}
+
+// refreshSnapshot swaps in the latest session snapshot. A log view scrolled
+// away from the tail stays put: its offset grows by the rows appended since
+// the previous refresh, so streaming output no longer pushes the lines being
+// read off screen. At the bottom (offset zero) the view keeps following it.
+func (m *Model) refreshSnapshot() {
+	pin := m.logPin
+	m.snapshot = m.backend.Snapshot()
+	m.logPin.count, m.logPin.width = m.snapshot.LogCount, m.width
+	if m.logOffset <= 0 || m.archivedLogs() || m.width != pin.width ||
+		m.snapshot.LogCount < pin.count {
+		return
+	}
+	first := int64(m.snapshot.LogCount) - int64(len(m.snapshot.Logs))
+	start := max(0, int(int64(pin.count)-first))
+	m.logOffset += m.countLogRows(m.snapshot.Logs[start:], m.logWidth())
+}
+
+// countLogRows returns the number of view rows the raw lines occupy.
+func (m *Model) countLogRows(lines []string, w int) int {
+	rows := 0
+	for _, raw := range lines {
+		rows += len(m.logRows(raw, w))
+	}
+	return rows
 }
