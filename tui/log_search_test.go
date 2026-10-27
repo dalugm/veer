@@ -167,11 +167,13 @@ func TestCancelLogSearchRestoresArchivePageAndOffset(t *testing.T) {
 					m.updateSearch(tea.KeyPressMsg{Code: tea.KeyBackspace})
 				}
 			}
+			appendArchiveLines(t, path, 1001, 1011)
+			m.snapshot.LogCount = 1011
 			if cmd := m.updateSearch(tea.KeyPressMsg{Code: tea.KeyEscape}); cmd != nil {
 				m.Update(cmd())
 			}
 			if m.logFilter != "needle" || m.logOffset != 42 || m.logSearch.result.Skip != 400 ||
-				m.logSearch.result.Lines[0] != "needle 0201" {
+				m.logSearch.result.Lines[0] != "needle 0201" || m.logSearch.count != 1001 {
 				t.Fatalf(
 					"did not restore page: filter=%q offset=%d result=%+v",
 					m.logFilter,

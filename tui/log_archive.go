@@ -34,6 +34,10 @@ func (m *Model) clearArchiveSearch() {
 }
 
 func (m *Model) searchArchive(skip int) tea.Cmd {
+	return m.searchArchivePage(session.LogSearchOptions{Skip: skip}, m.snapshot.LogCount)
+}
+
+func (m *Model) searchArchivePage(options session.LogSearchOptions, count uint64) tea.Cmd {
 	if strings.TrimSpace(m.logFilter) == "" || m.snapshot.LogArchive == "" {
 		m.clearArchiveSearch()
 		return nil
@@ -42,7 +46,7 @@ func (m *Model) searchArchive(skip int) tea.Cmd {
 		m.logSearch.cancel()
 	}
 	m.logSearch.seq++
-	path, query, count := m.snapshot.LogArchive, m.logFilter, m.snapshot.LogCount
+	path, query := m.snapshot.LogArchive, m.logFilter
 	if m.logSearch.path != path || m.logSearch.query != query {
 		m.logSearch.ready = false
 	}
@@ -54,7 +58,7 @@ func (m *Model) searchArchive(skip int) tea.Cmd {
 	seq := m.logSearch.seq
 	return m.workers.track(func() tea.Msg {
 		defer cancel()
-		result, err := session.SearchLogs(ctx, path, query, skip)
+		result, err := session.SearchLogs(ctx, path, query, options)
 		return archiveSearchMsg{seq: seq, count: count, result: result, err: err}
 	})
 }
@@ -63,11 +67,28 @@ func (m *Model) refreshArchiveSearch() tea.Cmd {
 	if m.page != Logs || m.logFilter == "" || m.snapshot.LogArchive == "" || m.logSearch.loading {
 		return nil
 	}
+	// Scrolled pages retain their file boundary, including across pagination.
+	// Returning to the live tail explicitly opens a fresh archive snapshot.
+	if m.archivedLogs() && (m.logOffset > 0 || m.logSearch.result.Skip > 0) {
+		return nil
+	}
 	if m.logSearch.path == m.snapshot.LogArchive && m.logSearch.query == m.logFilter &&
 		m.logSearch.count == m.snapshot.LogCount {
 		return nil
 	}
-	return m.searchArchive(m.logSearch.result.Skip)
+	return m.searchArchive(0)
+}
+
+func (m *Model) pauseArchiveSearch() {
+	if !m.logSearch.loading {
+		return
+	}
+	if m.logSearch.cancel != nil {
+		m.logSearch.cancel()
+		m.logSearch.cancel = nil
+	}
+	m.logSearch.seq++
+	m.logSearch.loading, m.logSearch.top = false, false
 }
 
 func (m *Model) archiveSearchResult(msg archiveSearchMsg) {
@@ -108,7 +129,15 @@ func (m *Model) navigateArchivedLogs(key string) (bool, tea.Cmd) {
 		if first {
 			skip = -1
 		}
-		cmd := m.searchArchive(skip)
+		var cmd tea.Cmd
+		if first {
+			cmd = m.searchArchivePage(
+				session.LogSearchOptions{Skip: skip, Before: m.logSearch.result.Before},
+				m.logSearch.count,
+			)
+		} else {
+			cmd = m.searchArchive(skip)
+		}
 		m.logSearch.top = first
 		if first {
 			m.logOffset = max(0, len(m.logLines(m.logWidth()))-m.navigationRows())
@@ -120,16 +149,31 @@ func (m *Model) navigateArchivedLogs(key string) (bool, tea.Cmd) {
 		old := m.logOffset
 		m.navigate(key)
 		if old != m.logOffset {
+			if m.logOffset > 0 || m.logSearch.result.Skip > 0 {
+				m.pauseArchiveSearch()
+			}
 			return true, nil
 		}
 		older := key == "k" || key == "up" || key == "ctrl+u" || key == "ctrl+b" || key == "pgup"
 		skip := m.logSearch.result.Skip
 		if older && skip+len(m.logSearch.result.Lines) < m.logSearch.result.Matches {
 			m.logOffset = 0
-			return true, m.searchArchive(skip + session.LogSearchPageSize)
+			return true, m.searchArchivePage(
+				session.LogSearchOptions{
+					Skip:   skip + session.LogSearchPageSize,
+					Before: m.logSearch.result.Before,
+				},
+				m.logSearch.count,
+			)
 		}
 		if !older && skip > 0 {
-			cmd := m.searchArchive(max(0, skip-session.LogSearchPageSize))
+			cmd := m.searchArchivePage(
+				session.LogSearchOptions{
+					Skip:   max(0, skip-session.LogSearchPageSize),
+					Before: m.logSearch.result.Before,
+				},
+				m.logSearch.count,
+			)
 			m.logSearch.top = true
 			return true, cmd
 		}

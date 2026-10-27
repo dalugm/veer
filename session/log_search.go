@@ -10,17 +10,28 @@ import (
 // LogSearchPageSize bounds the number of matching entries loaded into memory.
 const LogSearchPageSize = 400
 
+// LogSearchOptions selects a page within an optional archive snapshot.
+type LogSearchOptions struct {
+	Skip   int   // Matches after the page; negative selects the first page.
+	Before int64 // Exclusive byte offset; zero captures the current end of file.
+}
+
 // LogSearchResult contains a bounded page of matches from the complete archive.
 // Skip counts matches after the page, so zero follows the most recent matches.
 type LogSearchResult struct {
 	Lines   []string
 	Matches int
 	Skip    int
+	Before  int64
 }
 
 // SearchLogs scans only the current session's archive, with constant memory.
 // A negative skip selects the first page. Scans stop at the size captured at open.
-func SearchLogs(ctx context.Context, path, query string, skip int) (LogSearchResult, error) {
+func SearchLogs(
+	ctx context.Context,
+	path, query string,
+	options LogSearchOptions,
+) (LogSearchResult, error) {
 	var result LogSearchResult
 	file, err := openLogFile(path)
 	if err != nil {
@@ -31,12 +42,16 @@ func SearchLogs(ctx context.Context, path, query string, skip int) (LogSearchRes
 	if err != nil {
 		return result, err
 	}
+	result.Before = info.Size()
+	if options.Before > 0 {
+		result.Before = min(result.Before, options.Before)
+	}
 	query = strings.ToLower(strings.TrimSpace(query))
 	scan := func(visit func(string)) error {
 		if _, err := file.Seek(0, io.SeekStart); err != nil {
 			return err
 		}
-		scanner := bufio.NewScanner(io.LimitReader(file, info.Size()))
+		scanner := bufio.NewScanner(io.LimitReader(file, result.Before))
 		scanner.Buffer(make([]byte, 8192), 16384)
 		for scanner.Scan() {
 			if err := ctx.Err(); err != nil {
@@ -55,6 +70,7 @@ func SearchLogs(ctx context.Context, path, query string, skip int) (LogSearchRes
 	if err := scan(func(string) { result.Matches++ }); err != nil {
 		return result, err
 	}
+	skip := options.Skip
 	if skip < 0 {
 		skip = max(0, result.Matches-1) / LogSearchPageSize * LogSearchPageSize
 	}

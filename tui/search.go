@@ -3,6 +3,7 @@ package tui
 import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"github.com/dalugm/veer/session"
 )
 
 type listSearch struct {
@@ -11,6 +12,8 @@ type listSearch struct {
 	previous       string
 	cursor, offset int
 	skip           int
+	before         int64
+	count          uint64
 	edited         bool
 }
 
@@ -36,6 +39,8 @@ func (m *Model) startSearch() tea.Cmd {
 		cursor:   m.cursor,
 		offset:   m.logOffset,
 		skip:     m.logSearch.result.Skip,
+		before:   m.logSearch.result.Before,
+		count:    m.logSearch.count,
 	}
 	m.pendingG = false
 	return m.search.input.Focus()
@@ -51,7 +56,11 @@ func (m *Model) updateSearch(msg tea.Msg) tea.Cmd {
 			}
 			return nil
 		case "esc":
-			skip := m.search.skip
+			options := session.LogSearchOptions{Skip: m.search.skip, Before: m.search.before}
+			count := m.search.count
+			if options.Before == 0 {
+				count = m.snapshot.LogCount
+			}
 			changed := m.search.edited
 			if m.search.page == Logs {
 				m.logFilter, m.logOffset = m.search.previous, m.search.offset
@@ -62,7 +71,7 @@ func (m *Model) updateSearch(msg tea.Msg) tea.Cmd {
 			m.search = nil
 			if m.page == Logs {
 				if changed {
-					return m.searchArchive(skip)
+					return m.searchArchivePage(options, count)
 				}
 				return nil
 			}

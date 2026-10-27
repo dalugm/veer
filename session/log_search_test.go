@@ -25,7 +25,7 @@ func TestSessionArchiveSearchIncludesEvictedEntries(t *testing.T) {
 	if strings.Contains(strings.Join(c.Snapshot().Logs, "\n"), "needle") {
 		t.Fatal("fixture did not evict old entry")
 	}
-	result, err := SearchLogs(t.Context(), file.Name(), "NEEDLE", 0)
+	result, err := SearchLogs(t.Context(), file.Name(), "NEEDLE", LogSearchOptions{})
 	if err != nil || !reflect.DeepEqual(result.Lines, []string{"old unique needle"}) ||
 		result.Matches != 1 {
 		t.Fatalf("%+v %v", result, err)
@@ -45,7 +45,7 @@ func TestArchiveSearchPaginationAndCancellation(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct{ skip, first, last, length int }{{0, 601, 1000, 400}, {400, 201, 600, 400}, {800, 0, 200, 201}, {-1, 0, 200, 201}} {
-		result, err := SearchLogs(t.Context(), path, "match", tc.skip)
+		result, err := SearchLogs(t.Context(), path, "match", LogSearchOptions{Skip: tc.skip})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -58,7 +58,64 @@ func TestArchiveSearchPaginationAndCancellation(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if _, err := SearchLogs(ctx, path, "match", 0); !errors.Is(err, context.Canceled) {
+	if _, err := SearchLogs(
+		ctx,
+		path,
+		"match",
+		LogSearchOptions{},
+	); !errors.Is(
+		err,
+		context.Canceled,
+	) {
 		t.Fatalf("cancellation: %v", err)
+	}
+}
+
+func TestArchivePagesKeepTheirSnapshotAfterAppend(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "session.log")
+	var data strings.Builder
+	for i := range 1001 {
+		fmt.Fprintf(&data, "match %04d\n", i)
+	}
+	if err := os.WriteFile(path, []byte(data.String()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	initial, err := SearchLogs(t.Context(), path, "match", LogSearchOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 1001; i < 1021; i++ {
+		fmt.Fprintf(&data, "match %04d\n", i)
+	}
+	if err := os.WriteFile(path, []byte(data.String()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var matches []string
+	for _, skip := range []int{800, 400, 0} {
+		page, err := SearchLogs(
+			t.Context(),
+			path,
+			"match",
+			LogSearchOptions{Skip: skip, Before: initial.Before},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if page.Matches != initial.Matches || page.Before != initial.Before {
+			t.Fatal("page escaped the original archive snapshot")
+		}
+		matches = append(matches, page.Lines...)
+	}
+	if len(matches) != 1001 {
+		t.Fatalf("got %d matches; want 1001", len(matches))
+	}
+	for i, line := range matches {
+		if line != fmt.Sprintf("match %04d", i) {
+			t.Fatalf("match %d was skipped or repeated: %q", i, line)
+		}
+	}
+	latest, err := SearchLogs(t.Context(), path, "match", LogSearchOptions{})
+	if err != nil || latest.Matches != 1021 || latest.Lines[len(latest.Lines)-1] != "match 1020" {
+		t.Fatalf("fresh search did not include appended matches: %+v %v", latest, err)
 	}
 }
