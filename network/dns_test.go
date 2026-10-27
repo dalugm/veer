@@ -17,11 +17,14 @@ func TestDNSOverrideRestoresSnapshot(t *testing.T) {
 		}
 		return "", nil
 	}
-	restore, err := applyDNS(t.Context(), "darwin", []string{"1.1.1.1"}, "Wi-Fi", run)
+	change, err := prepareDNS(t.Context(), "darwin", []string{"1.1.1.1"}, "Wi-Fi", run)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := restore(t.Context()); err != nil {
+	if err := change.Apply(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if err := change.Restore(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(strings.Join(calls, "\n"), "networksetup -setdnsservers Wi-Fi 9.9.9.9") {
@@ -30,7 +33,7 @@ func TestDNSOverrideRestoresSnapshot(t *testing.T) {
 }
 
 func TestDNSDoesNothingWithoutOverride(t *testing.T) {
-	restore, err := applyDNS(
+	change, err := prepareDNS(
 		t.Context(),
 		"darwin",
 		nil,
@@ -43,13 +46,16 @@ func TestDNSDoesNothingWithoutOverride(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := restore(t.Context()); err != nil {
+	if err := change.Apply(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if err := change.Restore(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestDNSRejectsInvalidServerBeforeMutation(t *testing.T) {
-	_, err := applyDNS(
+	_, err := prepareDNS(
 		t.Context(),
 		"darwin",
 		[]string{"not-an-ip"},
@@ -66,7 +72,7 @@ func TestDNSRejectsInvalidServerBeforeMutation(t *testing.T) {
 
 func TestFailedDNSChangeAttemptsRollback(t *testing.T) {
 	calls := 0
-	_, err := applyDNS(
+	change, err := prepareDNS(
 		t.Context(),
 		"darwin",
 		[]string{"1.1.1.1"},
@@ -82,13 +88,17 @@ func TestFailedDNSChangeAttemptsRollback(t *testing.T) {
 			return "", nil
 		},
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = change.Apply(t.Context())
 	if err == nil || calls != 3 {
 		t.Fatalf("calls=%d err=%v", calls, err)
 	}
 }
 
 func TestFailedApplyPreservesRollbackFailure(t *testing.T) {
-	_, err := applyDNS(
+	change, err := prepareDNS(
 		t.Context(),
 		"darwin",
 		[]string{"1.1.1.1"},
@@ -100,6 +110,10 @@ func TestFailedApplyPreservesRollbackFailure(t *testing.T) {
 			return "", errors.New("permission denied")
 		},
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = change.Apply(t.Context())
 	if !errors.Is(err, ErrRestore) {
 		t.Fatalf("rollback error not identifiable: %v", err)
 	}

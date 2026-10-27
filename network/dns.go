@@ -15,11 +15,7 @@ import (
 // ErrRestore identifies a failure to restore the previous DNS settings.
 var ErrRestore = errors.New("DNS restoration failed")
 
-// Restore restores the DNS settings captured before an override.
-type (
-	Restore func(context.Context) error
-	runner  func(context.Context, string, ...string) (string, error)
-)
+type runner func(context.Context, string, ...string) (string, error)
 
 // DNSChange is a prepared DNS snapshot. Apply and Restore must be called serially.
 type DNSChange interface {
@@ -29,7 +25,7 @@ type DNSChange interface {
 
 type dnsChange struct {
 	set     func(context.Context, []string) error
-	restore Restore
+	restore func(context.Context) error
 	servers []string
 	applied bool
 }
@@ -63,11 +59,6 @@ func PrepareDNS(ctx context.Context, servers []string, service string) (DNSChang
 	return prepareDNS(ctx, runtime.GOOS, servers, service, run)
 }
 
-// ApplyDNS applies an optional DNS override and returns its rollback operation.
-func ApplyDNS(ctx context.Context, servers []string, service string) (Restore, error) {
-	return applyDNS(ctx, runtime.GOOS, servers, service, run)
-}
-
 func run(ctx context.Context, name string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
@@ -76,23 +67,6 @@ func run(ctx context.Context, name string, args ...string) (string, error) {
 		return "", fmt.Errorf("%s: %w: %s", name, err, strings.TrimSpace(string(out)))
 	}
 	return string(out), nil
-}
-
-func applyDNS(
-	ctx context.Context,
-	platform string,
-	servers []string,
-	service string,
-	run runner,
-) (Restore, error) {
-	change, err := prepareDNS(ctx, platform, servers, service, run)
-	if err != nil {
-		return nil, err
-	}
-	if err := change.Apply(ctx); err != nil {
-		return nil, err
-	}
-	return change.Restore, nil
 }
 
 func prepareDNS(
@@ -111,7 +85,7 @@ func prepareDNS(
 		}
 	}
 	var set func(context.Context, []string) error
-	var restore Restore
+	var restore func(context.Context) error
 	switch platform {
 	case "darwin":
 		if service == "" {
