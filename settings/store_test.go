@@ -7,6 +7,33 @@ import (
 	"testing"
 )
 
+func TestSharedGeoDirectoryUsesOnlySettingsLocation(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("VEER_CONFIG_DIR", root)
+	path, err := DefaultPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := GeoDirectory(path); got != filepath.Join(root, "geo") {
+		t.Fatalf("Geo directory = %q", got)
+	}
+	data := `{"version":1,"engine_path":"/old/xray","geo_dir":"/old/assets","profiles":[]}`
+	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Save(path, c); err != nil {
+		t.Fatal(err)
+	}
+	stored, _ := os.ReadFile(path)
+	if strings.Contains(string(stored), "geo_dir") {
+		t.Fatal("obsolete Geo directory setting remains")
+	}
+}
+
 func TestStoreRoundTripAndMissingDefault(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nested", "settings.json")
 	c, err := Load(path)

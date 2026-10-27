@@ -96,12 +96,10 @@ func TestPathCompletionAllPathFields(t *testing.T) {
 		kind  string
 		field int
 		files bool
-	}{{"geo", 0, false}, {"import", 1, true}, {"settings", 0, true}, {"settings", 1, false}} {
+	}{{"import", 1, true}, {"settings", 0, true}} {
 		t.Run(tc.kind+string(rune('0'+tc.field)), func(t *testing.T) {
 			m := newTestModel(t)
 			switch tc.kind {
-			case "geo":
-				m.openGeo()
 			case "import":
 				m.openImport()
 			case "settings":
@@ -144,7 +142,7 @@ func TestPathCompletionAllPathFields(t *testing.T) {
 
 func TestPathCompletionIgnoresStaleResultsAndKeepsOneRead(t *testing.T) {
 	m := newTestModel(t)
-	m.openGeo()
+	m.openSettings()
 	m.form.inputs[0].SetValue("old/")
 	m.readPaths = func(context.Context, string, bool) ([]string, error) { return []string{"old/child/"}, nil }
 	_, read := m.Update(m.requestPathCompletion()())
@@ -167,8 +165,9 @@ func TestPathCompletionIgnoresStaleResultsAndKeepsOneRead(t *testing.T) {
 
 func TestNoPathCandidatesPreservesTabNavigation(t *testing.T) {
 	m := newTestModel(t)
-	m.openGeo()
+	m.openSettings()
 	m.form.inputs[0].SetValue("new/not-created")
+	m.form.inputs[0].CursorEnd()
 	m.readPaths = func(context.Context, string, bool) ([]string, error) { return nil, os.ErrPermission }
 	finishPathQuery(t, m)
 	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
@@ -179,7 +178,7 @@ func TestNoPathCandidatesPreservesTabNavigation(t *testing.T) {
 
 func TestTabWhileCompletionPending(t *testing.T) {
 	m := newTestModel(t)
-	m.openGeo()
+	m.openSettings()
 	m.readPaths = func(context.Context, string, bool) ([]string, error) { return []string{"folder/"}, nil }
 	_, read := m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	if read == nil || m.form.focus != 0 {

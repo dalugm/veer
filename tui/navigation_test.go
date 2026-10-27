@@ -232,6 +232,10 @@ func TestVimPrefixCancelsAndFormsKeepText(t *testing.T) {
 func TestToolsKeepSingleKeyActions(t *testing.T) {
 	m := newTestModel(t)
 	m.page = Tools
+	press(m, 'i')
+	if m.form != nil {
+		t.Fatal("removed Geo import action is still available")
+	}
 	press(m, 'g')
 	if m.form == nil || m.form.kind != "geo" {
 		t.Fatal("g no longer opens Geo form")

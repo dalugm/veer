@@ -79,7 +79,7 @@ func (m *Model) pageKey(key string) tea.Cmd {
 	previousPage := m.page
 	if m.navigate(key) {
 		if m.page == Tools && previousPage != Tools {
-			return m.loadGeoInfo(m.geoDirectory())
+			return m.loadGeoInfo()
 		}
 		return nil
 	}
@@ -111,7 +111,7 @@ func (m *Model) pageKey(key string) tea.Cmd {
 	case "1", "2", "3", "4", "5":
 		m.page = Page(key[0] - '1')
 		if m.page == Tools {
-			return m.loadGeoInfo(m.geoDirectory())
+			return m.loadGeoInfo()
 		}
 	case "a":
 		m.openImport()

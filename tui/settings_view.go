@@ -1,6 +1,10 @@
 package tui
 
-import "runtime"
+import (
+	"runtime"
+
+	"github.com/dalugm/veer/settings"
+)
 
 func (m *Model) dnsDescription() string {
 	if runtime.GOOS == "linux" && m.info.TUN && m.info.TUNSystemDNS {
@@ -23,7 +27,7 @@ func (m *Model) toolsView(w, h int) string {
 	return box(
 		"TOOLS",
 		accent.Bold(true).
-			Render("[ g ]  Geo assets    [ u ]  Xray update")+
+			Render("[ g ]  Update Geo    [ u ]  Xray update")+
 			"\n\n"+m.geoAssetsView(h < 14)+"\n\n"+faint.Render("Downloads happen only when you request them."),
 		w,
 		h,
@@ -31,10 +35,7 @@ func (m *Model) toolsView(w, h int) string {
 }
 
 func (m *Model) settingsView(w, h int) string {
-	geo := m.config.GeoDir
-	if geo == "" {
-		geo = "Config directory"
-	}
+	geo := settings.GeoDirectory(m.path)
 	dns := m.dnsDescription()
 	service := m.config.NetworkService
 	if service == "" {

@@ -150,7 +150,6 @@ func TestGeoProgressCombinesFilesAndIgnoresPreviousWorker(t *testing.T) {
 func TestGeoFormShowsProgressBeforeIOAndClearsOnCancellation(t *testing.T) {
 	m := newTestModel(t)
 	m.openGeo()
-	m.form.inputs[0].SetValue(t.TempDir())
 	cmd := m.submitForm()
 	if cmd == nil || !strings.Contains(footerContent(m), "Geo [") {
 		t.Fatal("Geo form did not show initial progress")

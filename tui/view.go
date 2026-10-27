@@ -104,7 +104,7 @@ func (m *Model) View() tea.View {
 	} else if m.page == Logs {
 		footer = " j/k scroll  gg/G ends  / search  Esc clear  Ctrl+d/u half page  ? help  q quit"
 	} else if m.page == Tools {
-		footer = " g Geo assets   u Xray update   ? help   q quit"
+		footer = " g update Geo   u Xray update   ? help   q quit"
 	} else if m.page == Settings {
 		footer = " e edit   v Xray version"
 	}

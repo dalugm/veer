@@ -26,8 +26,8 @@ go build -o bin/veer.exe .
 Use a terminal with at least **60 columns × 18 rows**; Windows
 Terminal is recommended on Windows.
 
-1. Press **5**, then **e**, to set the Xray executable and optional
-   Geo assets directory. Enter `xray` if the executable is in PATH, or
+1. Press **5**, then **e**, to set the Xray executable.
+   Enter `xray` if the executable is in PATH, or
    provide its full path.
 2. Press **Ctrl+S** to save. Press **v** to check the core version.
 3. Press **a** to add an existing Xray JSON configuration.
@@ -68,9 +68,10 @@ without a China IP restriction or a fallback through the proxy. Refreshing or
 switching nodes rebuilds that rule automatically. Personal domains are never
 hardcoded into the defaults.
 
-Default configs require `geoip.dat` and `geosite.dat`. Set the Geo assets
-directory in Settings, or explicitly download them through **Tools → g** into
-the generated profiles directory. Assets are never downloaded automatically.
+Default configs require `geoip.dat` and `geosite.dat`. Download them through
+**Tools → g**. All profiles use
+the shared `geo` directory beside Veer's settings file. Assets are never
+downloaded automatically.
 
 Choose **Existing JSON** to supply your own local DNS, routing, listeners and
 logging instead. Its path is offered from the focused profile. Leave its
@@ -110,8 +111,8 @@ profile is not silently replaced by another node.
 | **1 Overview** | Connection status beside the selected profile, core version, traffic chart, mode, DNS and listeners. **i** opens process and path details.                                                      |
 | **2 Profiles** | **/** filters names, engines and paths. **Enter** selects; **a** adds a local config, **u** adds a subscription, **r** refreshes its nodes. **e** edits and **d** removes a local profile or an entire subscription. **c** connects and **y** shares the focused profile. |
 | **3 Logs**     | Console output and newly appended file logs, with severity, timestamps and sources. **/** searches the current session; **G** follows the latest output.                                        |
-| **4 Tools**    | Geosite and GeoIP versions or file timestamps. **g** opens the Geo asset updater; **u** opens the Xray core updater.                                                                            |
-| **5 Settings** | **e** edits the core path, Geo directory and DNS preferences. **v** checks the core version.                                                                                                    |
+| **4 Tools**    | Geosite and GeoIP versions or file timestamps. **g** updates Geo assets; **u** opens the Xray core updater. |
+| **5 Settings** | **e** edits the core path and DNS preferences. **v** checks the core version. The shared Geo directory is shown here. |
 
 Outside forms and search:
 
@@ -291,7 +292,7 @@ from these file archives.
 
 ## Geo assets
 
-In Tools, press **g**, choose a destination, then select **GitHub**,
+In Tools, press **g**, then select **GitHub**,
 **jsDelivr** or **Fastly** using **h/l** or **←/→**. Press **Enter**
 on the source selector to download `geoip.dat` and
 `geosite.dat`. Downloads occur only after an explicit action; a failed
@@ -300,9 +301,15 @@ validated as Xray GeoSite/GeoIP data before publication. If an OS error
 also prevents rollback, Veer keeps recovery files and reports their path.
 Geo downloads honor `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` environment settings.
 
-Tools reads the configured Geo directory, or the selected profile's
-directory when no override is set. After downloading, it displays the
-chosen destination.
+Geo assets always live in `geo/` beside Veer's settings file. On macOS this is
+`~/Library/Application Support/veer/geo/`; on Linux it is normally
+`~/.config/veer/geo/`, and on Windows `%APPDATA%\veer\geo\`. `VEER_CONFIG_DIR`
+changes the Veer data root as a whole. Connection startup, Tools inspection,
+and downloads all use this same location, independently of the
+selected profile and Xray executable. There is no separate Geo directory setting.
+
+Existing Geo files may also be copied into this shared directory manually.
+Downloads preserve the installed pair on failure or cancellation.
 
 - Existing files display their local modification time.
 - Downloads record their source, update time and SHA-256 in

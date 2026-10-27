@@ -37,7 +37,6 @@ type Config struct {
 	NetworkService    string         `json:"network_service,omitempty"`
 	Version           int            `json:"version"`
 	EnginePath        string         `json:"engine_path"`
-	GeoDir            string         `json:"geo_dir,omitempty"`
 	Selected          string         `json:"selected,omitempty"`
 	Profiles          []Profile      `json:"profiles"`
 }
@@ -51,6 +50,12 @@ func Defaults() Config {
 		EnginePath:        "xray",
 		Profiles:          []Profile{},
 	}
+}
+
+// GeoDirectory is shared by connection startup, asset inspection and updates.
+// The default lives with Veer's settings, independently of profiles and binaries.
+func GeoDirectory(settingsPath string) string {
+	return filepath.Join(filepath.Dir(settingsPath), "geo")
 }
 
 // DefaultPath resolves the settings file using the environment and OS config directory.

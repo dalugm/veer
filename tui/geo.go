@@ -3,12 +3,12 @@ package tui
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/dalugm/veer/geofile"
+	"github.com/dalugm/veer/settings"
 )
 
 var geoSources = [...]struct{ value, label string }{
@@ -17,7 +17,7 @@ var geoSources = [...]struct{ value, label string }{
 	{"fastly", "Fastly"},
 }
 
-func (f *form) geoSourceField() bool { return f.kind == "geo" && f.focus == 1 }
+func (f *form) geoSourceField() bool { return f.kind == "geo" && f.focus == 0 }
 
 func (f *form) geoSourceView() string {
 	choices := make([]string, len(geoSources))
@@ -35,41 +35,25 @@ func (f *form) geoSourceView() string {
 
 type geoInfoMsg struct {
 	seq   uint64
-	dir   string
 	files []geofile.FileInfo
 }
 
-func (m *Model) geoDirectory() string {
-	if m.config.GeoDir != "" {
-		return cleanPath(m.config.GeoDir)
-	}
-	if p, ok := m.config.Active(); ok {
-		return filepath.Dir(p.Path)
-	}
-	return ""
-}
-
-func (m *Model) loadGeoInfo(dir string) tea.Cmd {
+func (m *Model) loadGeoInfo() tea.Cmd {
 	m.geoSeq++
 	seq := m.geoSeq
-	m.geoDir, m.geoFiles = dir, nil
-	if dir == "" {
-		return nil
-	}
+	dir := settings.GeoDirectory(m.path)
+	m.geoFiles = nil
 	ctx := m.ctx
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	return func() tea.Msg {
-		return geoInfoMsg{seq: seq, dir: dir, files: geofile.Inspect(ctx, dir)}
+		return geoInfoMsg{seq: seq, files: geofile.Inspect(ctx, dir)}
 	}
 }
 
 func (m *Model) geoAssetsView(compact bool) string {
-	if m.geoDir == "" {
-		return faint.Render("Select a profile or set a Geo directory to inspect assets.")
-	}
-	lines := []string{faint.Render("Directory  " + safe(m.geoDir))}
+	lines := []string{faint.Render("Directory  " + safe(settings.GeoDirectory(m.path)))}
 	if m.geoFiles == nil {
 		return strings.Join(append(lines, "Reading assets…"), "\n")
 	}

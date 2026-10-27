@@ -93,9 +93,9 @@ func completePaths(ctx context.Context, input string, files bool) ([]string, err
 }
 
 func (f *form) pathField() bool {
-	return (f.kind == "geo" && f.focus == 0) || (f.kind == "import" && f.focus == 1) ||
+	return (f.kind == "import" && f.focus == 1) ||
 		(f.kind == "subscription" && f.focus == 3) ||
-		(f.kind == "settings" && (f.focus == 0 || f.focus == 1))
+		(f.kind == "settings" && f.focus == 0)
 }
 
 func (f *form) pathFiles() bool {

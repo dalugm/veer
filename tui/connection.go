@@ -2,12 +2,15 @@ package tui
 
 import (
 	"context"
+	"fmt"
 	"runtime"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/dalugm/veer/engine"
+	"github.com/dalugm/veer/geofile"
 	"github.com/dalugm/veer/privilege"
+	"github.com/dalugm/veer/settings"
 )
 
 func (m *Model) connect() tea.Cmd {
@@ -30,7 +33,7 @@ func (m *Model) connect() tea.Cmd {
 	o := engine.Options{
 		Binary:         m.config.EnginePath,
 		Config:         p.Path,
-		GeoDir:         m.config.GeoDir,
+		GeoDir:         settings.GeoDirectory(m.path),
 		NetworkService: m.config.NetworkService,
 	}
 	dns, err := m.config.DNSServers()
@@ -43,9 +46,29 @@ func (m *Model) connect() tea.Cmd {
 		dns = nil
 	}
 	o.DNS = dns
+	source, subscribed := m.config.Subscription(p.SubscriptionID)
+	needsGeo := subscribed && source.ConfigMode() != "custom"
 	ctx, cancel := m.begin("Inspecting configuration…")
 	return m.workers.track(func() tea.Msg {
 		defer cancel()
+		if err := ctx.Err(); err != nil {
+			return prepareMsg{err: err}
+		}
+		if needsGeo {
+			for _, file := range geofile.Inspect(ctx, o.GeoDir) {
+				if err := ctx.Err(); err != nil {
+					return prepareMsg{err: err}
+				}
+				if file.Err != nil {
+					return prepareMsg{
+						err: fmt.Errorf(
+							"geo assets are unavailable in %s. Open Tools and press g to download them",
+							o.GeoDir,
+						),
+					}
+				}
+			}
+		}
 		need, err := privilege.NeedsElevation(o)
 		if ctx.Err() != nil {
 			err = ctx.Err()

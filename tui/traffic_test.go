@@ -176,11 +176,11 @@ func TestSettingsDNSModeValidation(t *testing.T) {
 		t.Run(tc.mode+tc.servers, func(t *testing.T) {
 			m := newTestModel(t)
 			m.openSettings()
-			if len(m.form.inputs) != 5 {
+			if len(m.form.inputs) != 4 {
 				t.Fatalf("DNS mode field missing: %d", len(m.form.inputs))
 			}
-			m.form.inputs[2].SetValue(tc.mode)
-			m.form.inputs[3].SetValue(tc.servers)
+			m.form.inputs[1].SetValue(tc.mode)
+			m.form.inputs[2].SetValue(tc.servers)
 			cmd := m.submitForm()
 			if cmd == nil {
 				t.Fatal("no submit command")

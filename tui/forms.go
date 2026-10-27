@@ -87,17 +87,15 @@ func (m *Model) openSettings() tea.Cmd {
 	m.openForm(
 		"settings",
 		"Engine settings",
-		"Xray runs as an external process. A blank Geo directory uses the config folder.",
+		"Xray runs as an external process. Geo assets use Veer's shared geo directory.",
 		[]string{
 			"Xray executable (name in PATH or full path)",
-			"Geo assets directory (optional)",
 			"TUN DNS mode: auto / custom / off",
 			"Custom DNS servers, comma-separated",
 			"macOS network service (blank = automatic)",
 		},
 		[]string{
 			m.config.EnginePath,
-			m.config.GeoDir,
 			m.config.DNSMode,
 			m.config.DNS,
 			m.config.NetworkService,
@@ -107,20 +105,14 @@ func (m *Model) openSettings() tea.Cmd {
 }
 
 func (m *Model) openGeo() tea.Cmd {
-	dir := m.config.GeoDir
-	if dir == "" {
-		if p, ok := m.config.Active(); ok {
-			dir = filepath.Dir(p.Path)
-		}
-	}
 	m.openForm(
 		"geo",
 		"Update Geo assets",
 		"Download geoip.dat and geosite.dat. Existing files are retained if the update fails.",
-		[]string{"Destination directory", "Source · ←/→ or h/l to choose"},
-		[]string{dir, "github"},
+		[]string{"Source · ←/→ or h/l to choose"},
+		[]string{"github"},
 	)
-	return m.requestPathCompletion()
+	return nil
 }
 
 func (m *Model) updateForm(message tea.Msg) tea.Cmd {
@@ -220,7 +212,7 @@ func (m *Model) submitForm() tea.Cmd {
 		values[i] = strings.TrimSpace(f.inputs[i].Value())
 	}
 	if f.kind == "geo" {
-		values[1] = geoSources[f.geoSource].value
+		values[0] = geoSources[f.geoSource].value
 	}
 	label := "Saving…"
 	if f.kind == "geo" {
@@ -280,30 +272,22 @@ func (m *Model) submitForm() tea.Cmd {
 				}
 				c.EnginePath = p
 			}
-			c.DNSMode = strings.ToLower(values[2])
-			c.DNS = values[3]
-			c.NetworkService = values[4]
+			c.DNSMode = strings.ToLower(values[1])
+			c.DNS = values[2]
+			c.NetworkService = values[3]
 			if _, err := c.DNSServers(); err != nil {
 				return actionMsg{err: err}
 			}
-			c.GeoDir = cleanPath(values[1])
-			if c.GeoDir != "" {
-				p, err := filepath.Abs(c.GeoDir)
-				if err != nil {
-					return actionMsg{err: err}
-				}
-				c.GeoDir = p
-			}
 		case "geo":
-			if values[0] == "" {
-				return actionMsg{err: fmt.Errorf("choose a destination directory")}
+			dir := settings.GeoDirectory(path)
+			err := geofile.Update(ctx, values[0], dir, report)
+			if err != nil {
+				return actionMsg{err: err}
 			}
-			err := geofile.Update(ctx, values[1], cleanPath(values[0]), report)
 			return actionMsg{
-				err:       err,
-				notice:    "Geo assets updated.",
-				closeForm: err == nil,
-				geoDir:    cleanPath(values[0]),
+				notice:     "Geo assets updated.",
+				closeForm:  true,
+				geoUpdated: true,
 			}
 		}
 		err := settings.Save(path, c)

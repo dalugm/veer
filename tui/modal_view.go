@@ -3,6 +3,8 @@ package tui
 import (
 	"fmt"
 	"strings"
+
+	"github.com/dalugm/veer/settings"
 )
 
 func (m *Model) formView(w, h int) string {
@@ -24,13 +26,20 @@ func (m *Model) formView(w, h int) string {
 		)
 	}
 	lines := []string{faint.Render(clip(description, w-6)), ""}
+	if f.kind == "geo" {
+		lines = append(
+			lines,
+			faint.Render(clip("Destination  "+safe(settings.GeoDirectory(m.path)), w-6)),
+			"",
+		)
+	}
 	for i := start; i < end; i++ {
 		style := faint
 		if i == f.focus {
 			style = accent
 		}
 		input := f.inputs[i].View()
-		if f.kind == "geo" && i == 1 {
+		if f.kind == "geo" && i == 0 {
 			input = f.geoSourceView()
 		}
 		if f.kind == "subscription" && i == 2 {

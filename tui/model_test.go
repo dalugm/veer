@@ -132,10 +132,10 @@ func TestLastFormFieldVisibleAtMinimumSize(t *testing.T) {
 	m := newTestModel(t)
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	m.openSettings()
-	for range 4 {
+	for range 3 {
 		m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	}
-	m.form.inputs[4].SetValue("output-visible")
+	m.form.inputs[3].SetValue("output-visible")
 	if !strings.Contains(ansi.Strip(m.View().Content), "output-visible") {
 		t.Fatal("focused field is clipped below form")
 	}

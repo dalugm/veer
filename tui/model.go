@@ -34,7 +34,6 @@ type Model struct {
 	updates                          appUpdate
 	coreVersionSeq                   uint64
 	geoSeq                           uint64
-	geoDir                           string
 	geoFiles                         []geofile.FileInfo
 	pathReading                      bool
 	pathCancel                       context.CancelFunc
@@ -79,14 +78,14 @@ type Model struct {
 type (
 	tickMsg   time.Time
 	actionMsg struct {
-		focusID   string
-		geoDir    string
-		err       error
-		notice    string
-		config    *settings.Config
-		closeForm bool
-		info      engine.Info
-		version   string
+		focusID    string
+		geoUpdated bool
+		err        error
+		notice     string
+		config     *settings.Config
+		closeForm  bool
+		info       engine.Info
+		version    string
 	}
 )
 
@@ -146,7 +145,7 @@ func New(ctx context.Context, path string, backend privilege.Backend) (*Model, e
 
 // Init starts session updates and local core/version queries.
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(tick(), m.loadVersion(), m.loadGeoInfo(m.geoDirectory()))
+	return tea.Batch(tick(), m.loadVersion(), m.loadGeoInfo())
 }
 
 func tick() tea.Cmd {

@@ -43,10 +43,6 @@ var (
 	}
 )
 
-func updateGeoFiles(ctx context.Context, urls []string, savePath string) error {
-	return updateGeoFilesWithMetadata(ctx, urls, savePath, "", releaseInfo{}, nil)
-}
-
 func updateGeoFilesWithMetadata(
 	ctx context.Context,
 	urls []string,
@@ -54,11 +50,14 @@ func updateGeoFilesWithMetadata(
 	release releaseInfo,
 	report func(download.Progress),
 ) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	destination := savePath
 	if destination == "" {
 		destination = "."
 	}
-	if err := os.MkdirAll(destination, 0o755); err != nil {
+	if err := os.MkdirAll(destination, 0o700); err != nil {
 		return fmt.Errorf("create destination: %w", err)
 	}
 	stageDir, err := os.MkdirTemp(destination, ".geofile-stage-*")

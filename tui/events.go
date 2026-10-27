@@ -67,7 +67,7 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.connect()
 	case geoInfoMsg:
-		if msg.seq == m.geoSeq && msg.dir == m.geoDir {
+		if msg.seq == m.geoSeq {
 			m.geoFiles = msg.files
 		}
 		return m, nil
@@ -191,10 +191,8 @@ func (m *Model) actionResult(msg actionMsg) tea.Cmd {
 		}
 	}
 	if msg.err == nil {
-		if msg.geoDir != "" {
-			refresh = tea.Batch(refresh, m.loadGeoInfo(msg.geoDir))
-		} else if msg.config != nil {
-			refresh = tea.Batch(refresh, m.loadGeoInfo(m.geoDirectory()))
+		if msg.geoUpdated || msg.config != nil {
+			refresh = tea.Batch(refresh, m.loadGeoInfo())
 		}
 	}
 	return refresh
