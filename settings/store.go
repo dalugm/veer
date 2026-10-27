@@ -17,26 +17,29 @@ import (
 
 // Profile names an existing native configuration without copying it.
 type Profile struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	Engine string `json:"engine"`
-	Path   string `json:"path"`
+	SubscriptionID string `json:"subscription_id,omitempty"`
+	NodeKey        string `json:"node_key,omitempty"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Engine         string `json:"engine"`
+	Path           string `json:"path"`
 }
 
 // Config contains persisted profiles and application preferences.
 type Config struct {
-	CoreUpdateChannel string    `json:"core_update_channel,omitempty"`
-	CoreBackupPath    string    `json:"core_backup_path,omitempty"`
-	CoreBackupFor     string    `json:"core_backup_for,omitempty"`
-	CoreBackupTarget  string    `json:"core_backup_target,omitempty"`
-	DNSMode           string    `json:"dns_mode,omitempty"`
-	DNS               string    `json:"dns,omitempty"`
-	NetworkService    string    `json:"network_service,omitempty"`
-	Version           int       `json:"version"`
-	EnginePath        string    `json:"engine_path"`
-	GeoDir            string    `json:"geo_dir,omitempty"`
-	Selected          string    `json:"selected,omitempty"`
-	Profiles          []Profile `json:"profiles"`
+	Subscriptions     []Subscription `json:"subscriptions,omitempty"`
+	CoreUpdateChannel string         `json:"core_update_channel,omitempty"`
+	CoreBackupPath    string         `json:"core_backup_path,omitempty"`
+	CoreBackupFor     string         `json:"core_backup_for,omitempty"`
+	CoreBackupTarget  string         `json:"core_backup_target,omitempty"`
+	DNSMode           string         `json:"dns_mode,omitempty"`
+	DNS               string         `json:"dns,omitempty"`
+	NetworkService    string         `json:"network_service,omitempty"`
+	Version           int            `json:"version"`
+	EnginePath        string         `json:"engine_path"`
+	GeoDir            string         `json:"geo_dir,omitempty"`
+	Selected          string         `json:"selected,omitempty"`
+	Profiles          []Profile      `json:"profiles"`
 }
 
 // Defaults returns the initial preferences for a new installation.
@@ -104,6 +107,9 @@ func Load(path string) (Config, error) {
 	}
 	if c.Selected != "" && !ids[c.Selected] {
 		return Config{}, errors.New("selected profile does not exist")
+	}
+	if err := c.validateSubscriptions(); err != nil {
+		return Config{}, err
 	}
 	return c, nil
 }

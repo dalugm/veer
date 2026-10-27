@@ -2,11 +2,13 @@ package tui
 
 import (
 	"errors"
+	"slices"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 	update "github.com/dalugm/veer/engine/coreupdate"
 	"github.com/dalugm/veer/session"
+	"github.com/dalugm/veer/settings"
 )
 
 // Update handles terminal input and asynchronous results.
@@ -159,6 +161,14 @@ func (m *Model) actionResult(msg actionMsg) tea.Cmd {
 			changedCore := m.config.EnginePath != msg.config.EnginePath
 			changedChannel := m.config.CoreUpdateChannel != msg.config.CoreUpdateChannel
 			m.config = *msg.config
+			if msg.focusID != "" {
+				if index := slices.IndexFunc(
+					m.config.Profiles,
+					func(p settings.Profile) bool { return p.ID == msg.focusID },
+				); index >= 0 {
+					m.cursor = index
+				}
+			}
 			m.ensureProfileCursor()
 			m.info = msg.info
 			if changedCore {

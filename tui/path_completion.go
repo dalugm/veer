@@ -94,10 +94,13 @@ func completePaths(ctx context.Context, input string, files bool) ([]string, err
 
 func (f *form) pathField() bool {
 	return (f.kind == "geo" && f.focus == 0) || (f.kind == "import" && f.focus == 1) ||
+		(f.kind == "subscription" && f.focus == 2) ||
 		(f.kind == "settings" && (f.focus == 0 || f.focus == 1))
 }
 
-func (f *form) pathFiles() bool { return f.kind == "import" || (f.kind == "settings" && f.focus == 0) }
+func (f *form) pathFiles() bool {
+	return f.kind == "import" || f.kind == "subscription" || (f.kind == "settings" && f.focus == 0)
+}
 
 func (m *Model) clearPathCompletion() {
 	if m.pathCancel != nil {

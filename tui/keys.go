@@ -2,6 +2,7 @@ package tui
 
 import (
 	tea "charm.land/bubbletea/v2"
+	"github.com/dalugm/veer/settings"
 )
 
 func (m *Model) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
@@ -134,6 +135,9 @@ func (m *Model) pageKey(key string) tea.Cmd {
 		if m.page == Overview {
 			return m.restart()
 		}
+		if m.page == Profiles {
+			return m.refreshSubscription()
+		}
 	case "v":
 		return m.checkVersion()
 	case "g":
@@ -141,6 +145,10 @@ func (m *Model) pageKey(key string) tea.Cmd {
 			return m.openGeo()
 		}
 	case "u":
+		if m.page == Profiles {
+			m.openSubscription(settings.Subscription{})
+			return nil
+		}
 		if m.page == Tools {
 			m.updates.open = true
 			m.notice, m.bad = "", false

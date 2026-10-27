@@ -15,6 +15,7 @@ import (
 )
 
 type form struct {
+	subscriptionID           string
 	kind, title, description string
 	labels                   []string
 	inputs                   []textinput.Model
@@ -65,6 +66,10 @@ func (m *Model) openEdit() tea.Cmd {
 		return nil
 	}
 	p := m.config.Profiles[m.cursor]
+	if source, ok := m.config.Subscription(p.SubscriptionID); ok {
+		m.openSubscription(source)
+		return nil
+	}
 	m.openForm(
 		"edit",
 		"Edit profile",
@@ -187,6 +192,9 @@ func (m *Model) submitForm() tea.Cmd {
 		return nil
 	}
 	m.clearPathCompletion()
+	if f.kind == "subscription" {
+		return m.submitSubscription()
+	}
 	values := make([]string, len(f.inputs))
 	for i := range values {
 		values[i] = strings.TrimSpace(f.inputs[i].Value())

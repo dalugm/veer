@@ -34,7 +34,8 @@ func (m *Model) helpView(w, h int) string {
 		switch m.page {
 		case Profiles:
 			lines = append(lines, "/ search · Enter select · Esc clear search",
-				"a add · e edit · d remove · y QR · i details",
+				"a add · u subscribe · r refresh subscription",
+				"e edit · d remove profile/subscription · y QR · i details",
 				"c connect selected profile · s stop")
 		case Logs:
 			lines = append(lines, "/ search · Enter apply · Esc clear search",
@@ -55,7 +56,7 @@ func (m *Model) helpView(w, h int) string {
 				"i connection details · Tab next page")
 		}
 	}
-	lines = append(lines, "", "Esc / q / ? close help · Ctrl+C stop and quit")
+	lines = append(lines, "Esc / q / ? close help · Ctrl+C stop and quit")
 	content := box(
 		title,
 		strings.Join(lines, "\n"),

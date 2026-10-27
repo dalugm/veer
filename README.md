@@ -36,18 +36,53 @@ Terminal is recommended on Windows.
 5. Press **3** to inspect logs, **s** to disconnect, and **q** to
    quit.
 
-Profiles list each configuration's name, engine and file path,
-referencing existing local files. Veer does not install Xray
-automatically or provide a built-in JSON editor or
-subscription/share-link import. URL subscription import and refresh
-are not supported.
+Profiles list each configuration's name, engine and file path. Local
+profiles reference existing files. URL subscriptions import VLESS nodes
+using a local Xray JSON configuration as their policy template. Veer does
+not install Xray automatically or provide a built-in JSON editor.
+
+### Client subscriptions
+
+In **Profiles**, press **u** and enter a subscription name, its HTTP(S)
+URL, and the path to a local Xray JSON template. The focused profile's
+path is offered as the template. Leave the outbound tag blank when the
+template has exactly one VLESS outbound; otherwise specify its tag.
+Press **Ctrl+S** to download and import. Plain and Base64-encoded VLESS
+lists are supported, including the per-user `subscription.txt` URLs served
+by Caddy. Other subscription protocols and Clash YAML are rejected.
+
+Each node becomes a profile. The selected template supplies TUN or local
+proxy listeners, DNS, routing, logging and other local policy. Only the
+chosen outbound's connection settings are replaced; its routing tag and
+local socket options are retained. The template must already contain the
+DNS/bootstrap policy appropriate for the node's server address.
+
+Focus any profile from a subscription and press **r** to refresh its entire
+subscription, **e** to edit its URL/name/template, or **d** to remove the
+subscription and all its profile entries after confirmation. Subscriptions
+are downloaded only on submission or manual refresh, never at startup.
+Nodes must have unique names; names identify profiles across refreshes, so
+reordering a feed retains selection. Unsupported or invalid nodes reject
+the whole refresh and preserve the previous profiles.
+
+Generated `.veer-sub-*.json` files are private and live beside the template,
+preserving relative file paths and the default Geo asset directory. This
+directory must be writable. Refreshes create new files for changed nodes,
+retain unchanged files, and keep previous configs as local backups. Removal
+retains the files too. Subscription URLs are stored in private Veer settings
+and hidden in the form, views and download errors.
+
+Refreshing keeps an existing connection running. Its current configuration
+is retained until you restart from **Overview** with **r**. If the feed removes
+or renames the active node, disconnect before refreshing so the running
+profile is not silently replaced by another node.
 
 ## Pages and keyboard controls
 
 | Page           | Contents and actions                                                                                                                                                                            |
 |----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **1 Overview** | Connection status beside the selected profile, core version, traffic chart, mode, DNS and listeners. **i** opens process and path details.                                                      |
-| **2 Profiles** | **/** filters names, engines and paths. **Enter** selects; **a** adds, **e** edits the name or config path, **d** removes a profile entry. **c** connects and **y** shares the focused profile. |
+| **2 Profiles** | **/** filters names, engines and paths. **Enter** selects; **a** adds a local config, **u** adds a subscription, **r** refreshes its nodes. **e** edits and **d** removes a local profile or an entire subscription. **c** connects and **y** shares the focused profile. |
 | **3 Logs**     | Console output and newly appended file logs, with severity, timestamps and sources. **/** searches the current session; **G** follows the latest output.                                        |
 | **4 Tools**    | Geosite and GeoIP versions or file timestamps. **g** opens the Geo asset updater; **u** opens the Xray core updater.                                                                            |
 | **5 Settings** | **e** edits the core path, Geo directory and DNS preferences. **v** checks the core version.                                                                                                    |
@@ -346,7 +381,9 @@ integration in `network`/`privilege`, and terminal interaction in
 `tui`. Veer is TUI-only; argument dispatch is reserved for the private
 elevation helper.
 
-`sharelink` is a pure share-link codec. `subscription` owns manifest-based
+`sharelink` is a pure share-link codec. `profile` owns client subscription
+downloads and publication of locally templated profiles. `settings` persists
+their references and source metadata. `subscription` owns manifest-based
 client bundles. `serverconfig` owns server-user writes and backups; this
 backend API has no TUI entry point. Their Xray configuration transformations
 and validation belong to `engine`.

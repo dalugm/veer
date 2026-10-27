@@ -47,7 +47,7 @@ func (m *Model) profileBody(w, h int) string {
 	if len(indices) == 0 {
 		text := "No matching profiles. Press / to edit the search."
 		if len(m.config.Profiles) == 0 {
-			text = "No profiles yet. Press a to add a config."
+			text = "No profiles yet. Press a for a config or u for a subscription."
 		}
 		return strings.Join(append(lines, "", clip(text, w)), "\n")
 	}
@@ -94,6 +94,9 @@ func (m *Model) profileBody(w, h int) string {
 		state := "Enter to select"
 		if p.ID == m.config.Selected {
 			state = "Selected"
+		}
+		if source, ok := m.config.Subscription(p.SubscriptionID); ok {
+			state = clip(safe(source.Name)+" · r refresh", max(1, w/2))
 		}
 		lines = append(lines, faint.Render(strings.Repeat("─", w)),
 			spread(strong.Render(clip(safe(p.Name), max(8, w-14))), faint.Render(state), w),

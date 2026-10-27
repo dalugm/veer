@@ -9,6 +9,7 @@ import (
 	update "github.com/dalugm/veer/engine/coreupdate"
 	"github.com/dalugm/veer/geofile"
 	"github.com/dalugm/veer/privilege"
+	"github.com/dalugm/veer/profile"
 	"github.com/dalugm/veer/session"
 	"github.com/dalugm/veer/settings"
 )
@@ -29,6 +30,7 @@ var pageNames = []string{"Overview", "Profiles", "Logs", "Tools", "Settings"}
 
 // Model owns terminal navigation, forms and asynchronous session updates.
 type Model struct {
+	subscriptions                    profile.Client
 	updates                          appUpdate
 	coreVersionSeq                   uint64
 	geoSeq                           uint64
@@ -77,6 +79,7 @@ type Model struct {
 type (
 	tickMsg   time.Time
 	actionMsg struct {
+		focusID   string
 		geoDir    string
 		err       error
 		notice    string

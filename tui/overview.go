@@ -89,6 +89,14 @@ func (m *Model) detailLines(w int) []string {
 	lines = append(lines, "BINARY   "+safe(m.config.EnginePath))
 	if ok {
 		lines = append(lines, "CONFIG   "+safe(p.Path))
+		if source, found := m.config.Subscription(p.SubscriptionID); found {
+			lines = append(
+				lines,
+				"SOURCE   "+safe(source.Name),
+				"TEMPLATE "+safe(source.Template),
+				"OUTBOUND "+safe(source.OutboundTag),
+			)
+		}
 	}
 	var rows []string
 	for _, line := range lines {

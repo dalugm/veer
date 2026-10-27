@@ -49,6 +49,14 @@ func (m *Model) confirmView(w, h int) string {
 	case "remove":
 		title = "Remove this profile?"
 		body = "Only its entry in Veer is removed. Your config file is retained."
+		if m.hasFocusedProfile() {
+			if source, ok := m.config.Subscription(m.config.Profiles[m.cursor].SubscriptionID); ok {
+				title = "Remove this subscription?"
+				body = safe(
+					source.Name,
+				) + "\nRemove the subscription and all its profile entries.\nGenerated config files are retained."
+			}
+		}
 	case "update":
 		title = "Install Xray update?"
 		if selected := m.selectedUpdate(); selected != nil {

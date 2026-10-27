@@ -26,9 +26,14 @@ func (m *Model) removeProfile() tea.Cmd {
 	}
 	c := m.config
 	c.Profiles = append([]settings.Profile(nil), c.Profiles...)
-	id := c.Profiles[m.cursor].ID
-	c.Profiles = append(c.Profiles[:m.cursor], c.Profiles[m.cursor+1:]...)
-	if c.Selected == id {
+	notice := "Profile removed. Original config file retained."
+	if source := c.Profiles[m.cursor].SubscriptionID; source != "" {
+		c = withoutSubscription(c, source)
+		notice = "Subscription removed. Generated config files retained."
+	} else {
+		c.Profiles = append(c.Profiles[:m.cursor], c.Profiles[m.cursor+1:]...)
+	}
+	if _, ok := c.Active(); !ok {
 		c.Selected = ""
 		if len(c.Profiles) > 0 {
 			c.Selected = c.Profiles[0].ID
@@ -36,7 +41,7 @@ func (m *Model) removeProfile() tea.Cmd {
 	}
 	m.cursor = max(0, min(m.cursor, len(c.Profiles)-1))
 	m.begin("Removing profile…")
-	return m.save(c, "Profile removed. Original config file retained.", false)
+	return m.save(c, notice, false)
 }
 
 func (m *Model) save(c settings.Config, notice string, closeForm bool) tea.Cmd {
