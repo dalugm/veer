@@ -46,6 +46,7 @@ type User struct {
 
 // StreamSettings contains transport and security options.
 type StreamSettings struct {
+	Method          *string          `json:"method,omitempty"`
 	Network         string           `json:"network"`
 	Security        string           `json:"security"`
 	TLSSettings     *TLSSettings     `json:"tlsSettings,omitempty"`
@@ -75,6 +76,7 @@ type RealitySettings struct {
 
 // WSSettings contains WebSocket transport options.
 type WSSettings struct {
+	Host    string            `json:"host,omitempty"`
 	Path    string            `json:"path"`
 	Headers map[string]string `json:"headers"`
 }
@@ -132,10 +134,21 @@ func (c *XrayConfig) ToVLESSLink(outboundTag, label string) (string, error) {
 	if stream == nil {
 		return "", fmt.Errorf("VLESS outbound %q has no streamSettings", vless.Tag)
 	}
-	if stream.Network == "" {
+	network := stream.Network
+	if stream.Method != nil {
+		network = *stream.Method
+	}
+	network = strings.ToLower(network)
+	switch network {
+	case "websocket":
+		network = "ws"
+	case "splithttp":
+		network = "xhttp"
+	}
+	if network == "" {
 		return "", fmt.Errorf("VLESS outbound %q has no transport type", vless.Tag)
 	}
-	params.Set("type", stream.Network)
+	params.Set("type", network)
 
 	switch stream.Security {
 	case "reality":
@@ -189,7 +202,7 @@ func (c *XrayConfig) ToVLESSLink(outboundTag, label string) (string, error) {
 		params.Set("flow", user.Flow)
 	}
 
-	switch stream.Network {
+	switch network {
 	case "raw", "tcp":
 	case "ws":
 		if stream.WSSettings == nil {
@@ -198,7 +211,16 @@ func (c *XrayConfig) ToVLESSLink(outboundTag, label string) (string, error) {
 		if stream.WSSettings.Path != "" {
 			params.Set("path", stream.WSSettings.Path)
 		}
-		if host := stream.WSSettings.Headers["Host"]; host != "" {
+		host := stream.WSSettings.Host
+		if host == "" {
+			for key, value := range stream.WSSettings.Headers {
+				if strings.EqualFold(key, "Host") {
+					host = value
+					break
+				}
+			}
+		}
+		if host != "" {
 			params.Set("host", host)
 		}
 	case "grpc":
@@ -233,7 +255,7 @@ func (c *XrayConfig) ToVLESSLink(outboundTag, label string) (string, error) {
 			params.Set("extra", compact.String())
 		}
 	default:
-		return "", fmt.Errorf("unsupported transport type %q", stream.Network)
+		return "", fmt.Errorf("unsupported transport type %q", network)
 	}
 
 	if strings.TrimSpace(label) == "" {

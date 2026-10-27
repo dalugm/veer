@@ -184,10 +184,7 @@ func DecodeVLESSLink(link string) (Node, error) {
 		if stream.Security == "reality" {
 			return Node{}, errors.New("REALITY does not support WebSocket")
 		}
-		stream.WSSettings = &WSSettings{Path: q.Get("path")}
-		if q.Get("host") != "" {
-			stream.WSSettings.Headers = map[string]string{"Host": q.Get("host")}
-		}
+		stream.WSSettings = &WSSettings{Host: q.Get("host"), Path: q.Get("path")}
 	case "grpc":
 		stream.GRPCSettings = &GRPCSettings{ServiceName: q.Get("serviceName")}
 	case "xhttp":
