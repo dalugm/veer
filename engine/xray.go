@@ -32,7 +32,6 @@ type Info struct {
 	LuaDNS        bool
 	LuaRouting    bool
 	Endpoints     []string
-	Protocols     []string
 	ProxyEndpoint string
 	LogFiles      []LogFile
 }
@@ -189,9 +188,6 @@ func Inspect(path string) (Info, error) {
 				info.ProxyEndpoint = endpoint
 			}
 		}
-	}
-	for _, out := range doc.Outbounds {
-		info.Protocols = append(info.Protocols, out.Protocol)
 	}
 	return info, nil
 }
