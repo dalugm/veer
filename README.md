@@ -38,36 +38,60 @@ Terminal is recommended on Windows.
 
 Profiles list each configuration's name, engine and file path. Local
 profiles reference existing files. URL subscriptions import VLESS nodes
-using a local Xray JSON configuration as their policy template. Veer does
+using built-in client defaults or an existing Xray JSON configuration. Veer does
 not install Xray automatically or provide a built-in JSON editor.
 
 ### Client subscriptions
 
-In **Profiles**, press **u** and enter a subscription name, its HTTP(S)
-URL, and the path to a local Xray JSON template. The focused profile's
-path is offered as the template. Leave the outbound tag blank when the
-template has exactly one VLESS outbound; otherwise specify its tag.
-Press **Ctrl+S** to download and import. Plain and Base64-encoded VLESS
+In **Profiles**, press **u**, enter a subscription name and its HTTP(S)
+URL, then choose **Mixed** (default) or **TUN + Mixed** with **←/→**.
+Press **Ctrl+S** to download and import. No local template or outbound tag
+is required. Plain and Base64-encoded VLESS
 lists are supported, including the per-user `subscription.txt` URLs served
 by Caddy. Other subscription protocols and Clash YAML are rejected.
 
-Each node becomes a profile. The selected template supplies TUN or local
-proxy listeners, DNS, routing, logging and other local policy. Only the
-chosen outbound's connection settings are replaced; its routing tag and
-local socket options are retained. The template must already contain the
-DNS/bootstrap policy appropriate for the node's server address.
+Each node becomes a native JSON profile. Both defaults provide a loopback
+mixed HTTP/SOCKS listener on `127.0.0.1:10808`; TUN also captures IPv4 and IPv6
+with MTU 1500 and automatic outbound interface selection. DNS queries and
+node dialing use IPv4. Capturing IPv6 does not guarantee that a node can reach
+IPv6 destinations; literal IPv6 requests still depend on the node's capabilities.
+
+The routing baseline is inspired by v2rayN's
+[bypass-China preset](https://github.com/2dust/v2rayN/blob/57f17d5939e88c8e643ab49b90869d637765e75a/v2rayN/ServiceLib/Sample/custom_routing_white):
+Google domains use the proxy before China rules, private/China traffic is
+direct, unmatched traffic uses the proxy, and UDP port 443 is blocked. There
+is no default ad-blocking policy. DNS domain rules are derived from these same
+ordered routes: AliDNS IP-based DoH serves direct domains, Cloudflare DoH serves
+proxy domains and fallback queries. China DNS answers are checked against
+`geoip:cn`. Every domain-based node gets its own direct AliDNS bootstrap rule,
+without a China IP restriction or a fallback through the proxy. Refreshing or
+switching nodes rebuilds that rule automatically. Personal domains are never
+hardcoded into the defaults.
+
+Default configs require `geoip.dat` and `geosite.dat`. Set the Geo assets
+directory in Settings, or explicitly download them through **Tools → g** into
+the generated profiles directory. Assets are never downloaded automatically.
+
+Choose **Existing JSON** to supply your own local DNS, routing, listeners and
+logging instead. Its path is offered from the focused profile. Leave its
+outbound tag blank when the JSON has exactly one VLESS outbound; otherwise
+specify the tag. Only that outbound's connection settings are replaced; routing
+tags and local socket options are retained. This custom configuration must
+already contain the DNS/bootstrap policy appropriate for the node. Existing
+local native JSON profiles remain available through **a** without conversion.
 
 Focus any profile from a subscription and press **r** to refresh its entire
-subscription, **e** to edit its URL/name/template, or **d** to remove the
+subscription, **e** to edit its URL/name/configuration, or **d** to remove the
 subscription and all its profile entries after confirmation. Subscriptions
 are downloaded only on submission or manual refresh, never at startup.
 Nodes must have unique names; names identify profiles across refreshes, so
 reordering a feed retains selection. Unsupported or invalid nodes reject
 the whole refresh and preserve the previous profiles.
 
-Generated `.veer-sub-*.json` files are private and live beside the template,
-preserving relative file paths and the default Geo asset directory. This
-directory must be writable. Refreshes create new files for changed nodes,
+Generated `.veer-sub-*.json` files are private. Default profiles live in the
+`profiles` directory beside Veer's settings file; custom profiles live beside
+their base JSON, preserving relative log, script and other file paths.
+The destination must be writable. Refreshes create new files for changed nodes,
 retain unchanged files, and keep previous configs as local backups. Removal
 retains the files too. Subscription URLs are stored in private Veer settings
 and hidden in the form, views and download errors.
@@ -384,7 +408,7 @@ elevation helper.
 Veer is a client application. Server-user management, subscription publication
 and remote administration APIs belong to separate projects. `sharelink` is a
 pure share-link codec. `profile` owns client subscription downloads and
-publication of locally templated profiles. `settings` persists their references
+publication of native profiles. `settings` persists their references
 and source metadata. Xray configuration transformations and validation belong
 to `engine`.
 

@@ -16,6 +16,9 @@ import (
 
 type form struct {
 	subscriptionID           string
+	subscriptionMode         int
+	subscriptionTemplate     string
+	subscriptionTag          string
 	kind, title, description string
 	labels                   []string
 	inputs                   []textinput.Model
@@ -153,6 +156,19 @@ func (m *Model) updateForm(message tea.Msg) tea.Cmd {
 				return nil
 			}
 		}
+		if f.subscriptionModeField() {
+			switch key.String() {
+			case "right", "down", "l", "j":
+				f.setSubscriptionMode((f.subscriptionMode+1)%len(subscriptionModes), m.width)
+				return nil
+			case "left", "up", "h", "k":
+				f.setSubscriptionMode(
+					(f.subscriptionMode+len(subscriptionModes)-1)%len(subscriptionModes),
+					m.width,
+				)
+				return nil
+			}
+		}
 		switch key.String() {
 		case "ctrl+s":
 			return m.submitForm()
@@ -173,7 +189,7 @@ func (m *Model) updateForm(message tea.Msg) tea.Cmd {
 			return tea.Batch(f.inputs[f.focus].Focus(), m.requestPathCompletion())
 		}
 	}
-	if m.busy || f.geoSourceField() {
+	if m.busy || f.geoSourceField() || f.subscriptionModeField() {
 		return nil
 	}
 	before, pos := f.inputs[f.focus].Value(), f.inputs[f.focus].Position()

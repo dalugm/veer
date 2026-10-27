@@ -55,3 +55,27 @@ func TestLoadRejectsDanglingOrDuplicateSubscriptionMetadata(t *testing.T) {
 		t.Fatal("settings are not private")
 	}
 }
+
+func TestSubscriptionConfigurationModes(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "custom.json")
+	for _, tc := range []struct {
+		source Subscription
+		mode   string
+		valid  bool
+	}{
+		{Subscription{}, "mixed", true},
+		{Subscription{Mode: "mixed"}, "mixed", true},
+		{Subscription{Mode: "tun"}, "tun", true},
+		{Subscription{Template: path}, "custom", true},
+		{Subscription{Mode: "custom", Template: path, OutboundTag: "proxy"}, "custom", true},
+		{Subscription{Mode: "custom"}, "custom", false},
+		{Subscription{Mode: "custom", Template: "relative.json"}, "custom", false},
+		{Subscription{Mode: "tun", Template: path}, "tun", false},
+		{Subscription{OutboundTag: "proxy"}, "mixed", false},
+		{Subscription{Mode: "unknown"}, "unknown", false},
+	} {
+		if tc.source.ConfigMode() != tc.mode || (tc.source.ValidateConfig() == nil) != tc.valid {
+			t.Errorf("configuration mode %q: valid=%v", tc.mode, tc.valid)
+		}
+	}
+}

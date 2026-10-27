@@ -10,43 +10,96 @@ import (
 	"github.com/dalugm/veer/settings"
 )
 
+var subscriptionModes = [...]struct{ value, label string }{
+	{"mixed", "Mixed"},
+	{"tun", "TUN + Mixed"},
+	{"custom", "Existing JSON"},
+}
+
 func (m *Model) openSubscription(source settings.Subscription) {
 	title := "Add subscription"
 	if source.ID != "" {
 		title = "Edit subscription"
 	}
-	if source.Template == "" {
-		if m.hasFocusedProfile() {
-			source.Template = m.config.Profiles[m.cursor].Path
-		} else if p, ok := m.config.Active(); ok {
-			source.Template = p.Path
-		}
-	}
 	m.openForm(
 		"subscription",
 		title,
-		"Import VLESS nodes using local DNS, routing and listeners. Ctrl+S downloads and saves.",
+		"Import VLESS nodes with default DNS and routing, or use your own JSON. Ctrl+S downloads and saves.",
 		[]string{
 			"Subscription name",
 			"Subscription URL (hidden)",
-			"Local Xray JSON template path",
-			"VLESS outbound tag (blank = only VLESS outbound)",
+			"Configuration · ←/→ to choose",
 		},
-		[]string{source.Name, source.URL, source.Template, source.OutboundTag},
+		[]string{source.Name, source.URL, ""},
 	)
 	m.form.subscriptionID = source.ID
+	m.form.subscriptionTemplate = source.Template
+	m.form.subscriptionTag = source.OutboundTag
+	if source.Template == "" {
+		if m.hasFocusedProfile() {
+			m.form.subscriptionTemplate = m.config.Profiles[m.cursor].Path
+		} else if p, ok := m.config.Active(); ok {
+			m.form.subscriptionTemplate = p.Path
+		}
+	}
+	for i, mode := range subscriptionModes {
+		if mode.value == source.ConfigMode() {
+			m.form.setSubscriptionMode(i, m.width)
+			break
+		}
+	}
 	m.form.inputs[1].EchoMode = textinput.EchoPassword
 	m.form.inputs[1].EchoCharacter = '•'
+}
+
+func (f *form) subscriptionModeField() bool { return f.kind == "subscription" && f.focus == 2 }
+
+func (f *form) setSubscriptionMode(index, width int) {
+	if len(f.inputs) == 5 {
+		f.subscriptionTemplate = f.inputs[3].Value()
+		f.subscriptionTag = f.inputs[4].Value()
+	}
+	f.subscriptionMode = index
+	f.inputs, f.labels = f.inputs[:3], f.labels[:3]
+	if subscriptionModes[index].value == "custom" {
+		f.labels = append(
+			f.labels,
+			"Existing Xray JSON path",
+			"VLESS outbound tag (optional when unique)",
+		)
+		for _, value := range []string{f.subscriptionTemplate, f.subscriptionTag} {
+			in := textinput.New()
+			in.Prompt, in.CharLimit = "  ", 2048
+			in.SetValue(value)
+			f.inputs = append(f.inputs, in)
+		}
+	}
+	f.resize(width)
+}
+
+func (f *form) subscriptionModeView() string {
+	choices := make([]string, len(subscriptionModes))
+	for i, mode := range subscriptionModes {
+		label, style := "○ "+mode.label, faint
+		if i == f.subscriptionMode {
+			label, style = "● "+mode.label, accent.Bold(true)
+		}
+		choices[i] = style.Render(label)
+	}
+	return "  " + strings.Join(choices, "   ")
 }
 
 func (m *Model) submitSubscription() tea.Cmd {
 	f := m.form
 	source := settings.Subscription{
-		ID:          f.subscriptionID,
-		Name:        f.inputs[0].Value(),
-		URL:         f.inputs[1].Value(),
-		Template:    cleanPath(f.inputs[2].Value()),
-		OutboundTag: f.inputs[3].Value(),
+		ID:   f.subscriptionID,
+		Name: f.inputs[0].Value(),
+		URL:  f.inputs[1].Value(),
+		Mode: subscriptionModes[f.subscriptionMode].value,
+	}
+	if source.Mode == "custom" {
+		source.Template = cleanPath(f.inputs[3].Value())
+		source.OutboundTag = f.inputs[4].Value()
 	}
 	return m.syncSubscription(source, true)
 }

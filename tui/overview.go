@@ -93,9 +93,14 @@ func (m *Model) detailLines(w int) []string {
 			lines = append(
 				lines,
 				"SOURCE   "+safe(source.Name),
-				"TEMPLATE "+safe(source.Template),
-				"OUTBOUND "+safe(source.OutboundTag),
+				"PRESET   "+safe(source.ConfigMode()),
 			)
+			if source.ConfigMode() == "custom" {
+				lines = append(lines, "BASE     "+safe(source.Template))
+				if source.OutboundTag != "" {
+					lines = append(lines, "OUTBOUND "+safe(source.OutboundTag))
+				}
+			}
 		}
 	}
 	var rows []string

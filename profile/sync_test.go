@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/dalugm/veer/download"
+	"github.com/dalugm/veer/engine"
 	"github.com/dalugm/veer/settings"
 )
 
@@ -21,6 +22,100 @@ const templateJSON = `{"log":{"access":"none","error":"none"},"dns":{"servers":[
 
 func nodeLink(name, host string) string {
 	return "vless://11111111-2222-4333-8444-555555555555@" + host + ":443?type=tcp&security=tls&sni=example.com#" + name
+}
+
+func TestSyncDefaultProfilesRefreshBootstrapAndChangeMode(t *testing.T) {
+	for _, mode := range []string{"mixed", "tun"} {
+		t.Run(mode, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "veer", "settings.json")
+			host := "old.example"
+			server := httptest.NewServer(
+				http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					_, _ = fmt.Fprintln(w, nodeLink("Node", host))
+				}),
+			)
+			defer server.Close()
+			source := settings.Subscription{Name: "Home", URL: server.URL, Mode: mode}
+			c, err := (Client{}).Sync(t.Context(), path, settings.Defaults(), source, "", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			first := c.Profiles[0]
+			before, err := os.ReadFile(first.Path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if filepath.Dir(first.Path) != filepath.Join(filepath.Dir(path), "profiles") ||
+				!strings.Contains(string(before), "full:old.example") {
+				t.Fatal("default import used a template or omitted bootstrap")
+			}
+			if info, err := os.Stat(first.Path); err != nil || info.Mode().Perm()&0o077 != 0 {
+				t.Fatal("node credentials are not private")
+			}
+			loaded, err := settings.Load(path)
+			if err != nil || loaded.Subscriptions[0].ConfigMode() != mode ||
+				loaded.Subscriptions[0].Template != "" {
+				t.Fatal("default mode did not survive reload", err)
+			}
+			host = "new.example"
+			source = c.Subscriptions[0]
+			updated, err := (Client{}).Sync(t.Context(), path, c, source, first.ID, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			data, _ := os.ReadFile(updated.Profiles[0].Path)
+			retained, _ := os.ReadFile(first.Path)
+			if updated.Profiles[0].ID != first.ID || !bytes.Equal(before, retained) ||
+				strings.Contains(
+					string(data),
+					"old.example",
+				) || !strings.Contains(string(data), "full:new.example") {
+				t.Fatal("refresh retained stale bootstrap or replaced the running configuration")
+			}
+			source.Mode = "tun"
+			if mode == "tun" {
+				source.Mode = "mixed"
+			}
+			changed, err := (Client{}).Sync(t.Context(), path, updated, source, first.ID, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			info, err := engine.Inspect(changed.Profiles[0].Path)
+			if err != nil || info.TUN != (source.Mode == "tun") || changed.Selected != first.ID {
+				t.Fatal(
+					"mode change did not preserve selection and produce requested listeners",
+					err,
+				)
+			}
+		})
+	}
+}
+
+func TestSyncDefaultRollbackRemovesStagedFiles(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "settings.json")
+	if err := os.Mkdir(path, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprintln(w, nodeLink("../CON", "node.example"))
+	}))
+	defer server.Close()
+	_, err := (Client{}).Sync(
+		t.Context(),
+		path,
+		settings.Defaults(),
+		settings.Subscription{Name: "Home", URL: server.URL},
+		"",
+		nil,
+	)
+	if err == nil {
+		t.Fatal("published over a settings directory")
+	}
+	files, _ := filepath.Glob(filepath.Join(root, "profiles", "*"))
+	if len(files) != 0 {
+		t.Fatal("failed default import leaked staged credentials", files)
+	}
 }
 
 func fixture(t *testing.T) (string, settings.Subscription) {

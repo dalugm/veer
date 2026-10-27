@@ -29,23 +29,15 @@ func TestSubscriptionImportAndRefreshKeepConnectionAndHideSecrets(t *testing.T) 
 	defer server.Close()
 	m := newTestModel(t)
 	m.page = Profiles
-	template := filepath.Join(t.TempDir(), "template.json")
-	if err := os.WriteFile(
-		template,
-		[]byte(
-			`{"inbounds":[{"protocol":"mixed","port":10808}],"outbounds":[{"tag":"proxy","protocol":"vless","settings":{},"streamSettings":{"network":"tcp"}}]}`,
-		),
-		0o600,
-	); err != nil {
-		t.Fatal(err)
-	}
 	press(m, 'u')
 	if m.form == nil || m.form.kind != "subscription" {
 		t.Fatal("u did not open subscription import")
 	}
 	m.form.inputs[0].SetValue("Private feed")
 	m.form.inputs[1].SetValue(server.URL + "/secret-token")
-	m.form.inputs[2].SetValue(template)
+	if len(m.form.inputs) != 3 || m.form.subscriptionMode != 0 {
+		t.Fatal("default subscription still requires a template or outbound tag")
+	}
 	if strings.Contains(m.View().Content, "secret-token") || requests.Load() != 0 {
 		t.Fatal("form exposed URL or downloaded without submission")
 	}
@@ -56,6 +48,9 @@ func TestSubscriptionImportAndRefreshKeepConnectionAndHideSecrets(t *testing.T) 
 	runCommands(m, cmd)
 	if m.bad || m.form != nil || len(m.config.Profiles) != 1 || requests.Load() != 1 {
 		t.Fatal("import failed", m.notice)
+	}
+	if strings.Contains(m.View().Content, "secret-token") {
+		t.Fatal("completed import exposed the URL outside its editing form")
 	}
 	p := m.config.Profiles[0]
 	oldConfig, _ := os.ReadFile(p.Path)
@@ -103,6 +98,41 @@ func TestSubscriptionImportAndRefreshKeepConnectionAndHideSecrets(t *testing.T) 
 	}
 	if _, err := os.Stat(p.Path); err != nil {
 		t.Fatal("deletion removed retained config")
+	}
+}
+
+func TestSubscriptionModesAndCustomPathSurviveEditing(t *testing.T) {
+	m := newTestModel(t)
+	m.openSubscription(settings.Subscription{})
+	f := m.form
+	f.focus = 2
+	f.inputs[0].Blur()
+	press(m, 'l')
+	if subscriptionModes[f.subscriptionMode].value != "tun" || len(f.inputs) != 3 || f.pathField() {
+		t.Fatal("TUN choice requires custom fields")
+	}
+	press(m, 'l')
+	if len(f.inputs) != 5 || subscriptionModes[f.subscriptionMode].value != "custom" {
+		t.Fatal("existing JSON choice did not expose custom inputs")
+	}
+	path := filepath.Join(t.TempDir(), "custom.json")
+	f.inputs[3].SetValue(path)
+	f.inputs[4].SetValue("proxy")
+	press(m, 'h')
+	press(m, 'l')
+	if f.inputs[3].Value() != path || f.inputs[4].Value() != "proxy" {
+		t.Fatal("switching modes discarded custom settings")
+	}
+	f.focus = 3
+	if !f.pathField() {
+		t.Fatal("custom JSON has no path completion")
+	}
+	m.openSubscription(
+		settings.Subscription{ID: "old", Name: "Existing", Template: path, OutboundTag: "proxy"},
+	)
+	if m.form.subscriptionMode != 2 || m.form.inputs[3].Value() != path ||
+		m.form.inputs[4].Value() != "proxy" {
+		t.Fatal("existing subscription configuration was not preserved")
 	}
 }
 

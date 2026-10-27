@@ -1,4 +1,4 @@
-// Package profile imports client subscriptions into native, locally templated profiles.
+// Package profile imports client subscriptions into native Xray configurations.
 package profile
 
 import (

@@ -1,0 +1,32 @@
+{
+  "log": {"loglevel": "warning"},
+  "inbounds": [
+    {
+      "tag": "mixed",
+      "protocol": "mixed",
+      "listen": "127.0.0.1",
+      "port": 10808,
+      "settings": {"udp": true},
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"],
+        "routeOnly": true
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "proxy",
+      "protocol": "vless",
+      "settings": {},
+      "streamSettings": {"sockopt": {"domainStrategy": "ForceIPv4"}}
+    },
+    {"tag": "direct", "protocol": "freedom"},
+    {"tag": "block", "protocol": "blackhole"},
+    {
+      "tag": "dns",
+      "protocol": "dns",
+      "settings": {"rules": [{"action": "hijack", "qType": "1,28"}]}
+    }
+  ]
+}

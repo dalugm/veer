@@ -33,6 +33,9 @@ func (m *Model) formView(w, h int) string {
 		if f.kind == "geo" && i == 1 {
 			input = f.geoSourceView()
 		}
+		if f.kind == "subscription" && i == 2 {
+			input = f.subscriptionModeView()
+		}
 		lines = append(lines, style.Render(f.labels[i]), input, "")
 	}
 	lines = append(lines, accent.Render("[ Ctrl+S ] Submit"))

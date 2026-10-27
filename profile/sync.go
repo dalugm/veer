@@ -20,9 +20,9 @@ import (
 	"github.com/dalugm/veer/settings"
 )
 
-// Sync stages every node before atomically publishing settings. Generated files
-// live beside the template so relative assets, log paths and core working
-// directories retain their meaning. Old configurations remain as local backups.
+// Sync stages every node before atomically publishing settings. Default profiles
+// live under the settings directory; custom profiles stay beside their base JSON
+// to preserve relative paths. Old configurations remain as local backups.
 // protectedID prevents removing the profile of a still-running connection.
 func (client Client) Sync(
 	ctx context.Context,
@@ -36,6 +36,7 @@ func (client Client) Sync(
 		return current, err
 	}
 	source.Name, source.URL = strings.TrimSpace(source.Name), strings.TrimSpace(source.URL)
+	source.Mode = source.ConfigMode()
 	source.OutboundTag = strings.TrimSpace(source.OutboundTag)
 	if source.Name == "" {
 		return current, errors.New("enter a subscription name")
@@ -43,10 +44,15 @@ func (client Client) Sync(
 	if err := settings.ValidateSubscriptionURL(source.URL); err != nil {
 		return current, err
 	}
-	var err error
-	source.Template, err = filepath.Abs(settings.ExpandPath(source.Template))
-	if err != nil {
-		return current, errors.New("invalid template path")
+	if source.ConfigMode() == "custom" && strings.TrimSpace(source.Template) != "" {
+		var err error
+		source.Template, err = filepath.Abs(settings.ExpandPath(source.Template))
+		if err != nil {
+			return current, errors.New("invalid configuration path")
+		}
+	}
+	if err := source.ValidateConfig(); err != nil {
+		return current, err
 	}
 	for _, existing := range current.Subscriptions {
 		if source.ID != existing.ID && source.URL == existing.URL {
@@ -58,17 +64,34 @@ func (client Client) Sync(
 	} else if _, ok := current.Subscription(source.ID); !ok {
 		return current, errors.New("subscription no longer exists")
 	}
-	template, err := readConfig(source.Template)
+	var template []byte
+	dir, err := filepath.Abs(filepath.Join(filepath.Dir(path), "profiles"))
 	if err != nil {
-		return current, errors.New("cannot read the local Xray JSON template (maximum 8 MiB)")
+		return current, errors.New("invalid subscription configuration directory")
 	}
-	// Validate the template before making any network request.
-	if _, err := engine.Inspect(source.Template); err != nil {
-		return current, errors.New("template must be a valid local Xray JSON configuration")
+	if source.ConfigMode() == "custom" {
+		var err error
+		template, err = readConfig(source.Template)
+		if err != nil {
+			return current, errors.New(
+				"cannot read the local Xray JSON configuration (maximum 8 MiB)",
+			)
+		}
+		// Validate local references before making a network request.
+		if _, err := engine.Inspect(source.Template); err != nil {
+			return current, errors.New("choose a valid local Xray JSON configuration")
+		}
+		dir = filepath.Dir(source.Template)
 	}
 	nodes, err := client.fetch(ctx, source.URL, report)
 	if err != nil {
 		return current, err
+	}
+	if err := ctx.Err(); err != nil {
+		return current, err
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return current, errors.New("cannot create the subscription configuration directory")
 	}
 	old := make(map[string]settings.Profile)
 	for _, p := range current.Profiles {
@@ -105,7 +128,12 @@ func (client Client) Sync(
 		if err != nil {
 			return current, errors.New("cannot encode subscription node")
 		}
-		data, err := engine.ApplyProfileNode(template, native, source.OutboundTag)
+		var data []byte
+		if source.ConfigMode() == "custom" {
+			data, err = engine.ApplyProfileNode(template, native, source.OutboundTag)
+		} else {
+			data, err = engine.DefaultProfile(native, source.ConfigMode())
+		}
 		if err != nil {
 			return current, err
 		}
@@ -123,8 +151,8 @@ func (client Client) Sync(
 		p.Name = source.Name + " / " + node.Name
 		previous, readErr := readConfig(p.Path)
 		if !found || readErr != nil || !bytes.Equal(previous, data) ||
-			filepath.Dir(p.Path) != filepath.Dir(source.Template) {
-			p.Path, err = stageConfig(filepath.Dir(source.Template), data)
+			filepath.Dir(p.Path) != dir {
+			p.Path, err = stageConfig(dir, data)
 			if err != nil {
 				return current, err
 			}
@@ -178,7 +206,7 @@ func stageConfig(dir string, data []byte) (string, error) {
 	f, err := os.CreateTemp(dir, ".veer-sub-*.json")
 	if err != nil {
 		return "", errors.New(
-			"cannot create a subscription config beside the template; choose a writable template directory",
+			"cannot create a subscription configuration; choose a writable directory",
 		)
 	}
 	_, writeErr := f.Write(data)
