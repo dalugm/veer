@@ -144,7 +144,7 @@ func (c *XrayConfig) ToVLESSLink(outboundTag, label string) (string, error) {
 		}
 		r := stream.RealitySettings
 		// Xray calls this value publicKey. Password is retained as a
-		// backwards-compatible alias for older manifests.
+		// backwards-compatible alias for native client configurations.
 		publicKey := r.PublicKey
 		if publicKey == "" {
 			publicKey = r.Password
@@ -247,13 +247,4 @@ func (c *XrayConfig) ToVLESSLink(outboundTag, label string) (string, error) {
 		Fragment: label,
 	}
 	return u.String(), nil
-}
-
-// Parse reads the outbound fields needed to encode a share link.
-func Parse(data []byte) (*XrayConfig, error) {
-	var config XrayConfig
-	if err := json.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("parse Xray share-link configuration: %w", err)
-	}
-	return &config, nil
 }
