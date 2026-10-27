@@ -17,7 +17,7 @@ import (
 	"github.com/dalugm/veer/settings"
 )
 
-func TestSubscriptionImportAndRefreshKeepConnectionAndHideSecrets(t *testing.T) {
+func TestSubscriptionImportAndRefreshExposeURLOnlyWhileEditing(t *testing.T) {
 	var requests atomic.Int32
 	var host atomic.Value
 	host.Store("old.example")
@@ -38,8 +38,8 @@ func TestSubscriptionImportAndRefreshKeepConnectionAndHideSecrets(t *testing.T) 
 	if len(m.form.inputs) != 3 || m.form.subscriptionMode != 0 {
 		t.Fatal("default subscription still requires a template or outbound tag")
 	}
-	if strings.Contains(m.View().Content, "secret-token") || requests.Load() != 0 {
-		t.Fatal("form exposed URL or downloaded without submission")
+	if !strings.Contains(m.View().Content, "secret-token") || requests.Load() != 0 {
+		t.Fatal("form hid the entered URL or downloaded without submission")
 	}
 	cmd := m.submitForm()
 	if requests.Load() != 0 || cmd == nil {
@@ -80,8 +80,8 @@ func TestSubscriptionImportAndRefreshKeepConnectionAndHideSecrets(t *testing.T) 
 	b.state = session.Stopped
 	press(m, 'e')
 	if m.form == nil || m.form.subscriptionID == "" || m.form.title != "Edit subscription" ||
-		strings.Contains(m.View().Content, "secret-token") {
-		t.Fatal("subscription edit exposed credentials or opened path editor")
+		!strings.Contains(m.View().Content, "secret-token") {
+		t.Fatal("subscription edit hid the URL or opened path editor")
 	}
 	m.form = nil
 	press(m, 'd')
@@ -98,6 +98,28 @@ func TestSubscriptionImportAndRefreshKeepConnectionAndHideSecrets(t *testing.T) 
 	}
 	if _, err := os.Stat(p.Path); err != nil {
 		t.Fatal("deletion removed retained config")
+	}
+}
+
+func TestSubscriptionURLCanBeCheckedAndTemporarilyHidden(t *testing.T) {
+	m := newTestModel(t)
+	url := "https://nodes.example/s/private-token"
+	m.openSubscription(settings.Subscription{Name: "Home", URL: url})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	if !m.form.subscriptionURLField() || !strings.Contains(m.View().Content, "nodes.example") {
+		t.Fatal("cannot check the entered domain")
+	}
+	m.Update(tea.KeyPressMsg{Code: 'r', Mod: tea.ModCtrl})
+	if strings.Contains(m.View().Content, "private-token") || m.form.inputs[1].Value() != url {
+		t.Fatal("hiding the URL leaked or changed its value")
+	}
+	m.Update(tea.KeyPressMsg{Code: 'r', Mod: tea.ModCtrl})
+	if !strings.Contains(m.View().Content, "private-token") || m.form.inputs[1].Value() != url {
+		t.Fatal("cannot reveal the URL for editing")
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if strings.Contains(m.View().Content, "private-token") {
+		t.Fatal("URL remained visible after closing the form")
 	}
 }
 

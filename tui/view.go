@@ -96,6 +96,9 @@ func (m *Model) View() tea.View {
 		if m.form.subscriptionModeField() {
 			footer = " h/l or ←/→ configuration   Ctrl+S import   Esc cancel"
 		}
+		if m.form.subscriptionURLField() {
+			footer = " Ctrl+R show/hide URL   Tab next   Ctrl+S import   Esc cancel"
+		}
 	} else if m.page == Profiles {
 		footer = " a add  u subscribe  r refresh  e edit  d delete  c connect  Enter select  / search  ? help"
 	} else if m.page == Logs {

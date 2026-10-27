@@ -93,8 +93,10 @@ Generated `.veer-sub-*.json` files are private. Default profiles live in the
 their base JSON, preserving relative log, script and other file paths.
 The destination must be writable. Refreshes create new files for changed nodes,
 retain unchanged files, and keep previous configs as local backups. Removal
-retains the files too. Subscription URLs are stored in private Veer settings
-and hidden in the form, views and download errors.
+retains the files too. Subscription URLs are stored in private Veer settings.
+The editing form displays the URL so its address can be checked; **Ctrl+R**
+toggles hiding while that field is focused. General views and download errors
+omit the URL and its access tokens.
 
 Refreshing keeps an existing connection running. Its current configuration
 is retained until you restart from **Overview** with **r**. If the feed removes

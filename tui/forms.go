@@ -143,6 +143,10 @@ func (m *Model) updateForm(message tea.Msg) tea.Cmd {
 		if m.busy {
 			return nil
 		}
+		if f.subscriptionURLField() && key.String() == "ctrl+r" {
+			f.toggleSubscriptionURL()
+			return nil
+		}
 		if handled, cmd := m.pathKey(key.String()); handled {
 			return cmd
 		}

@@ -27,7 +27,7 @@ func (m *Model) openSubscription(source settings.Subscription) {
 		"Import VLESS nodes with default DNS and routing, or use your own JSON. Ctrl+S downloads and saves.",
 		[]string{
 			"Subscription name",
-			"Subscription URL (hidden)",
+			"Subscription URL · Ctrl+R hide",
 			"Configuration · ←/→ to choose",
 		},
 		[]string{source.Name, source.URL, ""},
@@ -48,8 +48,20 @@ func (m *Model) openSubscription(source settings.Subscription) {
 			break
 		}
 	}
-	m.form.inputs[1].EchoMode = textinput.EchoPassword
 	m.form.inputs[1].EchoCharacter = '•'
+}
+
+func (f *form) subscriptionURLField() bool { return f.kind == "subscription" && f.focus == 1 }
+
+func (f *form) toggleSubscriptionURL() {
+	in := &f.inputs[1]
+	if in.EchoMode == textinput.EchoPassword {
+		in.EchoMode = textinput.EchoNormal
+		f.labels[1] = "Subscription URL · Ctrl+R hide"
+	} else {
+		in.EchoMode = textinput.EchoPassword
+		f.labels[1] = "Subscription URL · Ctrl+R show"
+	}
 }
 
 func (f *form) subscriptionModeField() bool { return f.kind == "subscription" && f.focus == 2 }

@@ -8,7 +8,8 @@ import (
 )
 
 // Subscription stores an explicitly imported feed and its client configuration choice.
-// URL is a bearer credential and must never be displayed in views or errors.
+// URL may contain bearer credentials. Only the editing form may display it;
+// general views, logs and errors must omit it.
 type Subscription struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
