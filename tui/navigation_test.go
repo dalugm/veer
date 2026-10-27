@@ -150,6 +150,39 @@ func TestLiveLogsKeepFollowingTail(t *testing.T) {
 	}
 }
 
+func TestScrolledLogsStayVisibleAfterBufferEviction(t *testing.T) {
+	for _, added := range []int{20, 500} {
+		t.Run(fmt.Sprint(added), func(t *testing.T) {
+			lines := make([]string, 400)
+			for i := range lines {
+				lines[i] = fmt.Sprintf("line %04d", i)
+			}
+			m, backend := newLogStreamModel(t, lines)
+			m.width, m.height = 80, 24
+			m.refreshSnapshot()
+			m.pageKey("home")
+			for i := 400; i < 400+added; i++ {
+				backend.snapshot.Logs = append(backend.snapshot.Logs, fmt.Sprintf("line %04d", i))
+			}
+			backend.snapshot.Logs = backend.snapshot.Logs[added:]
+			backend.snapshot.LogCount += uint64(added)
+			m.refreshSnapshot()
+			body := m.logBody(m.logWidth(), m.navigationRows()+1)
+			if !strings.Contains(body, fmt.Sprintf("line %04d", added)) {
+				t.Fatalf("oldest retained page is not visible: offset=%d", m.logOffset)
+			}
+			press(m, 'G')
+			if m.logOffset != 0 ||
+				!strings.Contains(
+					m.logBody(m.logWidth(), m.navigationRows()+1),
+					fmt.Sprintf("line %04d", 399+added),
+				) {
+				t.Fatal("G did not resume following the live tail")
+			}
+		})
+	}
+}
+
 func TestScrolledLogsCountWrappedRows(t *testing.T) {
 	lines := make([]string, 20)
 	for i := range lines {

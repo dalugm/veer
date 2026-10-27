@@ -163,13 +163,17 @@ func (m *Model) refreshSnapshot() {
 	pin := m.logPin
 	m.snapshot = m.backend.Snapshot()
 	m.logPin.count, m.logPin.width = m.snapshot.LogCount, m.width
-	if m.logOffset <= 0 || m.archivedLogs() || m.width != pin.width ||
-		m.snapshot.LogCount < pin.count {
+	if m.logOffset <= 0 || m.archivedLogs() {
 		return
 	}
-	first := int64(m.snapshot.LogCount) - int64(len(m.snapshot.Logs))
-	start := max(0, int(int64(pin.count)-first))
-	m.logOffset += m.countLogRows(m.snapshot.Logs[start:], m.logWidth())
+	if m.width == pin.width && m.snapshot.LogCount >= pin.count {
+		first := int64(m.snapshot.LogCount) - int64(len(m.snapshot.Logs))
+		start := max(0, int(int64(pin.count)-first))
+		m.logOffset += m.countLogRows(m.snapshot.Logs[start:], m.logWidth())
+	}
+	// Once the pinned entries have left the live buffer, show the oldest
+	// remaining page instead of scrolling beyond all retained rows.
+	m.logOffset = min(m.logOffset, max(0, len(m.logLines(m.logWidth()))-m.navigationRows()))
 }
 
 // countLogRows returns the number of view rows the raw lines occupy.
