@@ -12,21 +12,28 @@ import (
 
 func (m *Model) overviewView(w, h int) string {
 	name := "Add a profile [a]"
-	if p, ok := m.config.Active(); ok {
+	p, selected := m.config.Active()
+	if selected {
 		name = safe(p.Name)
+	} else if len(m.config.Profiles) > 0 {
+		name = "Choose a profile [2]"
 	}
 	title := spread(
 		m.connectionStatus()+faint.Render(" · ")+strong.Render(name),
 		faint.Render(m.coreLabel()),
 		w,
 	)
-	mode := "Local proxy · DNS System"
-	if m.info.TUN {
-		mode = "TUN · DNS " + m.dnsDescription()
-	}
-	endpoint := "No listener configured"
-	if len(m.info.Endpoints) > 0 {
-		endpoint = "LISTEN  " + safe(strings.Join(m.info.Endpoints, " · "))
+	mode, endpoint := "No profile selected", ""
+	if selected {
+		mode = m.profileMode()
+		endpoint = "No listener configured"
+		if len(m.info.Endpoints) > 0 {
+			label := "Configured listeners  "
+			if m.snapshot.State == session.Running {
+				label = "LISTEN  "
+			}
+			endpoint = label + safe(strings.Join(m.info.Endpoints, " · "))
+		}
 	}
 	if m.snapshot.Error != "" {
 		endpoint = safe(m.snapshot.Error)
@@ -39,6 +46,17 @@ func (m *Model) overviewView(w, h int) string {
 		reserve = 5
 	}
 	return title + "\n" + gap + m.trafficView(w, h-reserve) + "\n" + gap + summary
+}
+
+func (m *Model) profileMode() string {
+	mode := "Local proxy · DNS System"
+	if m.info.TUN {
+		mode = "TUN · DNS " + m.dnsDescription()
+	}
+	if m.snapshot.State != session.Running {
+		mode = "Selected profile · " + mode
+	}
+	return mode
 }
 
 func (m *Model) detailLines(w int) []string {
@@ -65,12 +83,10 @@ func (m *Model) detailLines(w int) []string {
 				),
 			)
 		}
-		mode := "Local proxy"
-		if m.info.TUN {
-			mode = "TUN · DNS " + m.dnsDescription()
+		if ok {
+			lines = append(lines, "MODE     "+m.profileMode())
 		}
-		lines = append(lines, "MODE     "+mode)
-		if m.info.TUN {
+		if ok && m.info.TUN {
 			routes := "Manual"
 			switch {
 			case m.info.TUNIPv4 && m.info.TUNIPv6:
@@ -82,8 +98,14 @@ func (m *Model) detailLines(w int) []string {
 			}
 			lines = append(lines, "ROUTES   "+routes)
 		}
-		for _, endpoint := range m.info.Endpoints {
-			lines = append(lines, "LISTEN   "+safe(endpoint))
+		if ok {
+			for _, endpoint := range m.info.Endpoints {
+				label := "LISTEN   "
+				if m.snapshot.State != session.Running {
+					label = "CONFIGURED LISTEN   "
+				}
+				lines = append(lines, label+safe(endpoint))
+			}
 		}
 	}
 	lines = append(lines, "BINARY   "+safe(m.config.EnginePath))
