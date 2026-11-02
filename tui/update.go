@@ -132,9 +132,6 @@ func (m *Model) updateChecked(msg updateCheckedMsg) {
 	default:
 		m.updates.status = "No newer release."
 	}
-	if m.updates.open && !m.busy && m.confirmation == "" {
-		m.bad, m.notice = msg.err != nil, m.updates.status
-	}
 }
 
 func (m *Model) updateKey(key string) tea.Cmd {
