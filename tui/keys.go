@@ -57,6 +57,16 @@ func (m *Model) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 		m.pendingG = false
 		return m.updateForm(msg)
 	}
+	switch msg.String() {
+	case "1", "2", "3", "4", "5":
+		m.pendingG = false
+		m.updates.open = false
+		m.page = Page(msg.String()[0] - '1')
+		if m.page == Tools {
+			return m.loadGeoInfo()
+		}
+		return nil
+	}
 	if m.updates.open {
 		m.pendingG = false
 		return m.updateKey(msg.String())
@@ -108,11 +118,6 @@ func (m *Model) pageKey(key string) tea.Cmd {
 			return nil
 		}
 		return m.quit()
-	case "1", "2", "3", "4", "5":
-		m.page = Page(key[0] - '1')
-		if m.page == Tools {
-			return m.loadGeoInfo()
-		}
 	case "a":
 		m.openImport()
 	case "e":

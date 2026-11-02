@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -72,6 +73,31 @@ func TestVimPagesAndProfileNavigation(t *testing.T) {
 	m.Update(tea.KeyPressMsg{Code: 'u', Mod: tea.ModCtrl})
 	if m.cursor != 0 {
 		t.Fatal("ctrl+u did not return to top")
+	}
+}
+
+func TestNumberTabsKeepBackgroundOperationsRunning(t *testing.T) {
+	for _, state := range []string{"idle", "updater", "busy", "installing"} {
+		t.Run(state, func(t *testing.T) {
+			m := newTestModel(t)
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			m.cancelWork, m.updates.cancel = cancel, cancel
+			for page := Overview; page <= Settings; page++ {
+				m.busy = state == "busy" || state == "installing"
+				m.updates.open = state == "updater" || state == "installing"
+				busy := m.busy
+				key := '1' + rune(page)
+				_, cmd := m.Update(tea.KeyPressMsg{Code: key, Text: string(key)})
+				if m.page != page || m.updates.open || m.busy != busy || ctx.Err() != nil {
+					t.Fatalf("%c failed to switch tabs without cancelling the operation", key)
+				}
+				if page == Tools && cmd == nil {
+					t.Fatal("Tools did not refresh Geo information")
+				}
+				runCommands(m, cmd)
+			}
+		})
 	}
 }
 
@@ -218,10 +244,10 @@ func TestVimPrefixCancelsAndFormsKeepText(t *testing.T) {
 		t.Fatal("escape did not cancel gg")
 	}
 	m.openImport()
-	for _, key := range "hjklggG" {
+	for _, key := range "hjklggG12345" {
 		press(m, key)
 	}
-	if got := m.form.inputs[0].Value(); got != "hjklggG" {
+	if got := m.form.inputs[0].Value(); got != "hjklggG12345" {
 		t.Fatalf("navigation stole form text %q", got)
 	}
 	if m.page != Profiles || m.cursor != 6 {

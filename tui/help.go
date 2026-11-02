@@ -12,6 +12,7 @@ func (m *Model) helpView(w, h int) string {
 	if m.updates.open {
 		title = "KEYBOARD · XRAY UPDATE"
 		lines = []string{
+			"1–5          Switch pages; keep operation running",
 			"h/l or ←/→   Stable / Preview channel",
 			"r            Check releases",
 			"j/k or ↑/↓   Select version",

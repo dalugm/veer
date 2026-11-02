@@ -127,6 +127,9 @@ Outside forms and search:
 | **?**                                 | Contextual keyboard help                               |
 | **q**, **Ctrl+C**                     | Quit; an active connection may prompt for confirmation |
 
+**1–5** also switch pages from the Xray updater and during an operation,
+without cancelling it. Text inputs and confirmation dialogs retain keyboard focus.
+
 In Profiles and Logs search, **Enter** keeps the filter, **Ctrl+U**
 clears the input, and **Esc** cancels editing. Outside search, **Esc**
 clears the applied filter. Profile actions use the focused visible
