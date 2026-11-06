@@ -68,8 +68,9 @@ without a China IP restriction or a fallback through the proxy. Refreshing or
 switching nodes rebuilds that rule automatically. Personal domains are never
 hardcoded into the defaults.
 
-Default configs require `geoip.dat` and `geosite.dat`. Download them through
-**Tools → g**. All profiles use
+Default configs require `geoip.dat` and `geosite.dat`. On an explicit connection,
+Veer initializes missing files from validated assets already installed with Xray.
+If none are available, download them through **Tools → g**. All profiles use
 the shared `geo` directory beside Veer's settings file. Assets are never
 downloaded automatically.
 
@@ -311,6 +312,11 @@ changes the Veer data root as a whole. Connection startup, Tools inspection,
 and downloads all use this same location, independently of the
 selected profile and Xray executable. There is no separate Geo directory setting.
 
+When connecting, missing assets are initialized from `XRAY_LOCATION_ASSET`,
+beside the configured Xray executable (including its resolved symlink target),
+or the standard Unix `/usr/local/share/xray` and `/usr/share/xray` directories.
+Only validated local files are copied; existing managed files are never replaced
+by initialization. This does not make network requests or change routing policy.
 Existing Geo files may also be copied into this shared directory manually.
 Downloads preserve the installed pair on failure or cancellation.
 

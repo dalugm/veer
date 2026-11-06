@@ -66,6 +66,48 @@ func TestMissingDefaultGeoPointsToDownload(t *testing.T) {
 	}
 }
 
+func TestConnectInitializesInstalledGeoWithoutDownloading(t *testing.T) {
+	m := newTestModel(t)
+	source := t.TempDir()
+	t.Setenv("XRAY_LOCATION_ASSET", source)
+	fixtures := map[string][]byte{
+		"geosite.dat": []byte("\x0a\x15\x0a\x02CN\x12\x0f\x08\x02\x12\x0bexample.com"),
+		"geoip.dat":   []byte("\x0a\x0e\x0a\x02CN\x12\x08\x0a\x04\xc0\x00\x02\x00\x10\x18"),
+	}
+	for name, data := range fixtures {
+		if err := os.WriteFile(filepath.Join(source, name), data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	config := filepath.Join(t.TempDir(), "default.json")
+	if err := os.WriteFile(
+		config,
+		[]byte(
+			`{"inbounds":[{"protocol":"mixed","port":10808}],"outbounds":[{"protocol":"freedom"}]}`,
+		),
+		0o600,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.config.AddProfile("Node", config); err != nil {
+		t.Fatal(err)
+	}
+	m.config.Profiles[0].SubscriptionID = "source"
+	m.config.Subscriptions = []settings.Subscription{
+		{ID: "source", Name: "Feed", URL: "https://example.com/feed", Mode: "mixed"},
+	}
+	result := m.connect()().(prepareMsg)
+	if result.err != nil {
+		t.Fatal(result.err)
+	}
+	for name, want := range fixtures {
+		got, err := os.ReadFile(filepath.Join(settings.GeoDirectory(m.path), name))
+		if err != nil || string(got) != string(want) {
+			t.Fatalf("%s was not initialized: %v", name, err)
+		}
+	}
+}
+
 func TestNativeXrayUsesSharedGeoAfterRuntimeRelocation(t *testing.T) {
 	binary, source := os.Getenv("VEER_TEST_XRAY"), os.Getenv("VEER_TEST_XRAY_ASSETS")
 	if binary == "" || source == "" {

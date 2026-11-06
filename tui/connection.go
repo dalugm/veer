@@ -54,6 +54,13 @@ func (m *Model) connect() tea.Cmd {
 		if err := ctx.Err(); err != nil {
 			return prepareMsg{err: err}
 		}
+		if err := geofile.Initialize(
+			ctx,
+			o.GeoDir,
+			engine.GeoAssetDirectories(o.Binary),
+		); err != nil {
+			return prepareMsg{err: err}
+		}
 		if needsGeo {
 			for _, file := range geofile.Inspect(ctx, o.GeoDir) {
 				if err := ctx.Err(); err != nil {
