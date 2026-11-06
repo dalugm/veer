@@ -5,10 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os/exec"
 	"runtime"
+	"slices"
 	"strconv"
+	"strings"
 	"time"
 )
+
+// ErrProxyUnavailable means no supported desktop proxy backend is installed.
+// No settings have been changed; callers may still run a local proxy listener.
+var ErrProxyUnavailable = errors.New("system proxy integration is unavailable")
 
 // ProxyChange snapshots and restores the user's system proxy settings.
 type ProxyChange interface {
@@ -89,6 +96,19 @@ func prepareProxy(
 		}
 		parseWindowsProxy(&s, out)
 	case "linux":
+		out, err := run(ctx, "gsettings", "list-schemas")
+		if errors.Is(err, exec.ErrNotFound) {
+			return nil, fmt.Errorf("%w: gsettings is not installed", ErrProxyUnavailable)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("inspect Linux desktop proxy: %w", err)
+		}
+		schemas := strings.Fields(out)
+		for _, setting := range linuxProxySettings {
+			if !slices.Contains(schemas, setting.schema) {
+				return nil, fmt.Errorf("%w: missing GNOME proxy schema", ErrProxyUnavailable)
+			}
+		}
 		for _, setting := range linuxProxySettings {
 			out, err := run(ctx, "gsettings", "get", setting.schema, setting.key)
 			if err != nil {

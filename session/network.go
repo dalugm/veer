@@ -43,6 +43,12 @@ func (c *Controller) prepareNetwork(
 	}
 	if !info.TUN && info.ProxyEndpoint != "" {
 		proxy, err := c.prepareProxy(ctx, info.ProxyEndpoint, options.NetworkService)
+		if errors.Is(err, network.ErrProxyUnavailable) {
+			c.Log(
+				"[Warning] veer: System proxy unavailable; configure applications to use the local proxy listener",
+			)
+			return nil
+		}
 		if err != nil {
 			return fmt.Errorf("prepare system proxy: %w", err)
 		}

@@ -256,6 +256,11 @@ takes precedence, so a configuration containing both TUN and SOCKS
 does not change the system proxy; a Shadowsocks inbound is not itself
 a system SOCKS proxy and is left unchanged.
 
+On Linux without `gsettings` or the required GNOME proxy schemas, the local
+listener still starts and Logs explains that applications must configure their
+proxy explicitly. Errors reading or modifying an available backend remain fatal;
+restoration failures still require retrying cleanup.
+
 If restoring DNS or proxy settings fails, the session retains the
 original settings and blocks reconnecting. Press **s** again to retry
 disconnecting and restoring them.

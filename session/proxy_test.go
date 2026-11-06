@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/dalugm/veer/engine"
@@ -81,6 +82,44 @@ func TestSystemProxyApplyFailureStopsSession(t *testing.T) {
 	}
 	if proxy.applied != 1 || proxy.restored != 1 {
 		t.Fatalf("proxy lifecycle: %+v", proxy)
+	}
+}
+
+func TestUnavailableSystemProxyKeepsLocalCoreRunning(t *testing.T) {
+	backend := newFakeController(t, engine.Info{ProxyEndpoint: "127.0.0.1:10808"})
+	backend.prepareProxy = func(context.Context, string, string) (network.ProxyChange, error) {
+		return nil, network.ErrProxyUnavailable
+	}
+	if err := backend.Start(t.Context(), engine.Options{}); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := backend.Stop(t.Context()); err != nil {
+			t.Error(err)
+		}
+	}()
+	s := backend.Snapshot()
+	if s.State != Running || s.PID == 0 {
+		t.Fatalf("local core not running: %+v", s)
+	}
+	found := false
+	for _, line := range s.Logs {
+		found = found || strings.Contains(line, "System proxy unavailable")
+	}
+	if !found {
+		t.Fatal("missing system proxy warning")
+	}
+}
+
+func TestSystemProxyReadFailureStillBlocksStartup(t *testing.T) {
+	backend := newFakeController(t, engine.Info{ProxyEndpoint: "127.0.0.1:10808"})
+	want := errors.New("permission denied")
+	backend.prepareProxy = func(context.Context, string, string) (network.ProxyChange, error) { return nil, want }
+	if err := backend.Start(t.Context(), engine.Options{}); !errors.Is(err, want) {
+		t.Fatalf("read failure lost: %v", err)
+	}
+	if backend.Snapshot().PID != 0 {
+		t.Fatal("core started despite failed settings snapshot")
 	}
 }
 

@@ -5,10 +5,45 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"os/exec"
 	"reflect"
 	"strings"
 	"testing"
 )
+
+func TestLinuxProxyAvailability(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		output      string
+		err         error
+		unavailable bool
+	}{
+		{"missing command", "", &exec.Error{Name: "gsettings", Err: exec.ErrNotFound}, true},
+		{"missing schemas", "org.example.other", nil, true},
+		{"permission denied", "", errors.New("permission denied"), false},
+		{"cancelled", "", context.Canceled, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			_, err := prepareProxy(
+				t.Context(),
+				"linux",
+				"127.0.0.1:10808",
+				"",
+				func(_ context.Context, name string, args ...string) (string, error) {
+					calls++
+					if name != "gsettings" || len(args) != 1 || args[0] != "list-schemas" {
+						t.Fatal("unexpected settings access")
+					}
+					return tc.output, tc.err
+				},
+			)
+			if err == nil || errors.Is(err, ErrProxyUnavailable) != tc.unavailable || calls != 1 {
+				t.Fatalf("availability: %v (%d calls)", err, calls)
+			}
+		})
+	}
+}
 
 func TestProxyDarwinSnapshotsAndRestores(t *testing.T) {
 	var calls []string
@@ -53,6 +88,9 @@ func TestProxyLinuxRestoresAllGNOMEValues(t *testing.T) {
 	}
 	original := maps.Clone(values)
 	run := func(_ context.Context, name string, args ...string) (string, error) {
+		if name == "gsettings" && len(args) == 1 && args[0] == "list-schemas" {
+			return "org.gnome.system.proxy org.gnome.system.proxy.http org.gnome.system.proxy.https org.gnome.system.proxy.ftp org.gnome.system.proxy.socks", nil
+		}
 		if name != "gsettings" || len(args) < 3 {
 			return "", errors.New("unexpected command")
 		}
